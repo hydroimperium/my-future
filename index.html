@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Моё будущее — AI-предиктор здоровья и долголетия</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen font-sans">
+
+  <!-- Шапка -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-10">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="text-xl font-bold text-emerald-800">🌿 Моё будущее</h1>
+        <p class="text-xs text-slate-500">Прагматичный AI-предиктор продолжительности жизни и запаса здоровья</p>
+      </div>
+      <div class="flex gap-2">
+        <button type="button" onclick="fillDemoAlexander()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-3 py-2 rounded-lg transition">
+          Демо: Александр, 46 лет (Москва)
+        </button>
+        <button type="button" onclick="fillDemoHealthy()" class="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-medium px-3 py-2 rounded-lg transition">
+          Демо: Здоровый профиль, 38 лет (СПб)
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- ЛЕВАЯ КОЛОНКА: АНКЕТА -->
+    <section class="lg:col-span-7 bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-1">1. Основные параметры и образ жизни</h2>
+      <p class="text-xs text-slate-500 mb-5">Заполните базовые поля для прагматичного расчёта вашего прогноза</p>
+
+      <form id="predictForm" onsubmit="submitPrediction(event)" class="space-y-4">
+
+        <!-- Страна и Регион РФ -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Страна проживания</label>
+            <select id="country_code" onchange="handleCountryChange()" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-emerald-600">
+              <option value="RU" selected>Россия</option>
+              <option value="BY">Беларусь</option>
+              <option value="KZ">Казахстан</option>
+              <option value="UZ">Узбекистан</option>
+              <option value="AM_GE">Армения / Грузия</option>
+              <option value="TR_PL">Турция / Восточная Европа (Польша, Чехия, Сербия)</option>
+              <option value="CN_BR">Китай / Латинская Америка / ОАЭ</option>
+              <option value="US_CA">США / Канада</option>
+              <option value="DE_IT">Западная и Северная Европа (Германия, Италия, Швеция)</option>
+              <option value="JP_CH">Япония / Швейцария / Испания / Франция / Израиль</option>
+            </select>
+          </div>
+
+          <div id="ruRegionWrapper">
+            <label class="block text-xs font-medium text-slate-700 mb-1">Регион / область РФ (статистика Росстата)</label>
+            <select id="ru_region_code" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-emerald-600">
+              <option value="RU_AVG">Средний показатель по РФ (М: 68.2 / Ж: 78.6 г.)</option>
+              <option value="RU_MOW">Москва (М: 75.2 / Ж: 82.8 г.)</option>
+              <option value="RU_SPE">Санкт-Петербург (М: 72.1 / Ж: 80.6 г.)</option>
+              <option value="RU_MOS">Московская область (М: 70.3 / Ж: 79.5 г.)</option>
+              <option value="RU_DAG_ING">Дагестан / Ингушетия / Кабардино-Балкария (М: 76.4 / Ж: 82.6 г.)</option>
+              <option value="RU_TAT">Республика Татарстан (М: 69.8 / Ж: 80.2 г.)</option>
+              <option value="RU_KDA_STA">Краснодарский / Ставропольский край / Адыгея (М: 70.1 / Ж: 79.6 г.)</option>
+              <option value="RU_KHM_TYU">Тюменская область / ХМАО — Югра / ЯНАО (М: 70.9 / Ж: 80.3 г.)</option>
+              <option value="RU_BEL_VOR">Черноземье: Белгородская, Воронежская, Липецкая, Тамбовская обл.</option>
+              <option value="RU_ROS_VOL">Ростовская / Волгоградская / Астраханская область</option>
+              <option value="RU_SAM_SAR">Поволжье: Самарская, Саратовская, Ульяновская, Пензенская обл.</option>
+              <option value="RU_NIZ_KIROV">Нижегородская, Кировская обл., Чувашия, Марий Эл, Мордовия</option>
+              <option value="RU_CTR">Центр: Ярославская, Тульская, Калужская, Рязанская, Тверская обл.</option>
+              <option value="RU_NW">Северо-Запад: Калининградская, Ленинградская, Вологодская, Псковская обл.</option>
+              <option value="RU_NORTH">Европейский Север: Мурманская, Архангельская обл., Карелия, Коми</option>
+              <option value="RU_URAL">Урал: Свердловская, Челябинская, Оренбургская обл., Башкортостан, Пермский край</option>
+              <option value="RU_WSIB">Западная Сибирь: Новосибирская, Омская, Томская обл., Алтайский край</option>
+              <option value="RU_KUZ_ESIB">Кузбасс и Вост. Сибирь: Кемеровская, Иркутская обл., Красноярский край</option>
+              <option value="RU_FE">Дальний Восток: Приморский, Хабаровский, Забайкальский край, Амурская обл., Саха</option>
+              <option value="RU_EXTREME">Республика Тыва / Чукотский АО / Магаданская область</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Возраст, Пол, Рост, Вес -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Возраст (лет)</label>
+            <input type="number" id="age" min="18" max="95" value="46" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Пол</label>
+            <select id="gender" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+              <option value="male">Мужской</option>
+              <option value="female">Женский</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Рост (см)</label>
+            <input type="number" id="height_cm" min="120" max="230" value="178" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Вес (кг)</label>
+            <input type="number" id="weight_kg" min="35" max="250" value="92" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+        </div>
+
+        <!-- Выбор образа жизни и тренировок -->
+        <div>
+          <label class="block text-xs font-medium text-slate-700 mb-1">Образ жизни и тренировки (помимо обычной ходьбы)</label>
+          <select id="lifestyle_activity" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-emerald-600">
+            <option value="sedentary" selected>Сидячий образ жизни (работа сидя &gt;8 ч, спорт и тренировки отсутствуют)</option>
+            <option value="light">Малоподвижный (лёгкая бытовая активность, прогулки, но без тренировок)</option>
+            <option value="moderate">Умеренно активный (физкультура, бег, бассейн или фитнес 1–2 раза в неделю)</option>
+            <option value="active_gym">Активный спорт / Спортзал (регулярные силовые или кардио тренировки 3+ раза в неделю)</option>
+          </select>
+        </div>
+
+        <!-- Сон, Шаги, Сигареты, Стресс -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Сон (часов в сутки)</label>
+            <input type="number" step="0.5" id="sleep_hours" min="3" max="14" value="6.0" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Шагов в день</label>
+            <input type="number" step="500" id="daily_steps" min="0" max="50000" value="3500" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Сигарет в день</label>
+            <input type="number" id="smoking_cigs_per_day" min="0" max="60" value="10" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Уровень стресса</label>
+            <select id="stress_level" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+              <option value="low">Низкий</option>
+              <option value="medium">Средний</option>
+              <option value="high" selected>Высокий</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Алкоголь и Фастфуд -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+          <div>
+            <label class="block text-xs font-semibold text-slate-800 mb-0.5">Алкоголь: порций в неделю (0 = не пью)</label>
+            <p class="text-[11px] text-slate-500 mb-1.5">1 порция = 1 бокал вина (150 мл), или 1 банка пива (400 мл), или 1 рюмка крепкого (40 мл)</p>
+            <input type="number" id="alcohol_drinks_per_week" min="0" max="70" value="6" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-800 mb-0.5">Фастфуд и сладкое: приёмов в неделю</label>
+            <p class="text-[11px] text-slate-500 mb-1.5">1 приём = бургер/шаурма/пицца, пачка чипсов/снеков или порция выпечки с газировкой</p>
+            <input type="number" id="fastfood_times_per_week" min="0" max="28" value="5" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
+          </div>
+        </div>
+
+        <!-- Вредное производство -->
+        <div>
+          <label class="block text-xs font-medium text-slate-700 mb-1">Работаете ли вы на тяжёлом или вредном производстве?</label>
+          <select id="hazardous_work" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-emerald-600">
+            <option value="no" selected>Нет (офисная, удалённая или обычная работа без вредных факторов)</option>
+            <option value="moderate">Умеренная нагрузка (ночные смены, повышенный шум, вибрация, тяжёлый физический труд)</option>
+            <option value="high">Вредное / опасное производство (химия, металлургия, пыль, токсины, горячий цех, шахта)</option>
+          </select>
+        </div>
+
+        <!-- ПРОШЛЫЕ ПРИВЫЧКИ И ХРОНИЧЕСКИЕ ДИАГНОЗЫ -->
+        <details class="group border border-slate-200 rounded-xl bg-slate-50/70 p-4 mt-4">
+          <summary class="cursor-pointer font-semibold text-sm text-emerald-800 flex items-center justify-between">
+            <span>➕ 2. Вредные привычки в прошлом и хронические заболевания (необязательно)</span>
+            <span class="text-xs text-slate-500 group-open:rotate-180 transition">▼</span>
+          </summary>
+
+          <div class="mt-4 space-y-5 text-xs border-t border-slate-200 pt-4">
+
+            <div>
+              <h3 class="font-semibold text-slate-800 mb-2">Вредные привычки в прошлом (если сейчас не курите / не пьёте)</h3>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <label class="block text-slate-600 mb-1">Лет курения в прошлом</label>
+                  <input type="number" id="past_smoking_years" value="0" min="0" max="70" class="w-full rounded border border-slate-300 px-2 py-1.5 bg-white" />
+                </div>
+                <div>
+                  <label class="block text-slate-600 mb-1">Сигарет в день тогда</label>
+                  <input type="number" id="past_smoking_cigs_per_day" value="0" min="0" max="60" class="w-full rounded border border-slate-300 px-2 py-1.5 bg-white" />
+                </div>
+                <div>
+                  <label class="block text-slate-600 mb-1">Сколько лет не курите</label>
+                  <input type="number" id="years_since_quitting_smoking" value="0" min="0" max="70" class="w-full rounded border border-slate-300 px-2 py-1.5 bg-white" />
+                </div>
+                <div>
+                  <label class="block text-slate-600 mb-1">Алкоголь в прошлом</label>
+                  <select id="past_heavy_alcohol" class="w-full rounded border border-slate-300 px-2 py-1.5 bg-white">
+                    <option value="no">Не злоупотреблял</option>
+                    <option value="yes_quit_over_3y_ago">Бросил &gt;3 лет назад</option>
+                    <option value="yes_quit_recently">Бросил недавно (&lt;3 лет)</option>
+                    <option value="unknown">Не знаю</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 class="font-semibold text-slate-800 mb-2">Установленные хронические диагнозы</h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2" onchange="toggleMedicationsBlock()">
+                <label class="flex items-center gap-2"><input type="checkbox" id="has_hypertension" class="chronic-cb rounded text-emerald-600" /> Артериальная гипертензия (повышенное давление)</label>
+                <label class="flex items-center gap-2"><input type="checkbox" id="has_diabetes" class="chronic-cb rounded text-emerald-600" /> Сахарный диабет</label>
+                <label class="flex items-center gap-2"><input type="checkbox" id="has_atherosclerosis" class="chronic-cb rounded text-emerald-600" /> Атеросклероз сосудов (бляшки)</label>
+                <label class="flex items-center gap-2"><input type="checkbox" id="has_cvd_infarction_angina" class="chronic-cb rounded text-emerald-600" /> ИБС, стенокардия или перенесённый инфаркт</label>
+                <label class="flex items-center gap-2"><input type="checkbox" id="has_stroke_tia" class="chronic-cb rounded text-emerald-600" /> Инсульт или нарушение мозгового кровообращения</label>
+                <label class="flex items-center gap-2"><input type="checkbox" id="has_thrombosis_pe" class="chronic-cb rounded text-emerald-600" /> Тромбозы или тромбоэмболия (ТЭЛА)</label>
+                <label class="flex items-center gap-2"><input type="checkbox" id="has_rheumatoid_arthritis" class="chronic-cb rounded text-emerald-600" /> Ревматоидный артрит</label>
+                <label class="flex items-center gap-2"><input type="checkbox" id="has_oncology" class="chronic-cb rounded text-emerald-600" /> Онкологическое заболевание</label>
+                <label class="flex items-center gap-2"><input type="checkbox" id="has_ibd_polyps" class="chronic-cb rounded text-emerald-600" /> Полипы кишечника, колит или болезнь Крона</label>
+                <label class="flex items-center gap-2"><input type="checkbox" id="has_urinary_infection" class="chronic-cb rounded text-emerald-600" /> Хронические инфекции мочевыводящих путей</label>
+              </div>
+            </div>
+
+            <div id="medicationsSection" class="hidden bg-emerald-50/70 border border-emerald-200 rounded-xl p-3.5">
+              <h3 class="font-semibold text-emerald-950 mb-1">💊 Регулярный приём препаратов (компенсирует часть риска диагнозов)</h3>
+              <p class="text-[11px] text-emerald-800 mb-2.5">Отметьте лекарства, которые вы принимаете постоянно по назначению врача:</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <label class="flex items-center gap-2"><input type="checkbox" id="meds_antihypertensive" class="med-cb rounded text-emerald-600" /> Препараты для снижения давления</label>
+                <label class="flex items-center gap-2"><input type="checkbox" id="meds_statins_lipid" class="med-cb rounded text-emerald-600" /> Препараты для снижения холестерина (статины и др.)</label>
+                <label class="flex items-center gap-2"><input type="checkbox" id="meds_anticoagulants" class="med-cb rounded text-emerald-600" /> Препараты для разжижения крови</label>
+                <label class="flex items-center gap-2"><input type="checkbox" id="meds_antidiabetic" class="med-cb rounded text-emerald-600" /> Сахароснижающие препараты</label>
+                <label class="flex items-center gap-2"><input type="checkbox" id="meds_antiarrhythmic" class="med-cb rounded text-emerald-600" /> Препараты для нормализации сердечного ритма</label>
+                <label class="flex items-center gap-2"><input type="checkbox" id="meds_asthma_copd" class="med-cb rounded text-emerald-600" /> Препараты от бронхиальной астмы / ХОБЛ</label>
+                <label class="flex items-center gap-2"><input type="checkbox" id="meds_glucocorticoids" class="med-cb rounded text-emerald-600" /> Гормональные препараты (глюкокортикоиды &gt;3 мес)</label>
+                <label class="flex items-center gap-2"><input type="checkbox" id="meds_daily_nsaids" class="med-cb rounded text-emerald-600" /> Обезболивающие ежедневно (&gt;2 недель подряд)</label>
+              </div>
+            </div>
+
+          </div>
+        </details>
+
+        <!-- Загрузка файла с лабораторными анализами (.pdf, .docx, .txt) -->
+        <div class="border border-blue-200 rounded-xl bg-blue-50/40 p-3.5">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <label class="block text-xs font-semibold text-blue-950">
+              🧪 Прикрепить бланк анализов (.pdf, .docx, .txt) — необязательно
+            </label>
+            <button type="button" id="clearLabBtn" onclick="clearLabFile()" class="hidden text-[11px] text-red-600 hover:underline font-medium">
+              ✕ Удалить файл
+            </button>
+          </div>
+          <input
+            type="file"
+            id="lab_file_input"
+            accept=".pdf,.docx,.doc,.txt,.csv"
+            onchange="handleLabFileUpload(event)"
+            class="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
+          />
+          <div id="labUploadBadge" class="hidden mt-2 text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5"></div>
+        </div>
+
+        <!-- Свободный ввод дополнительных данных -->
+        <div class="border border-emerald-200 rounded-xl bg-emerald-50/40 p-3.5">
+          <label class="block text-xs font-semibold text-emerald-950 mb-1">
+            🌐 Дополнительные сведения о здоровье (необязательно — анализы, давление, операции, симптомы, наследственность)
+          </label>
+          <textarea
+            id="custom_health_nuance"
+            rows="2"
+            placeholder="Например: давление 150/95, повышен сахар, перенёс стентирование сосудов, есть апноэ/храп, у родителей был диабет..."
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:border-emerald-600 bg-white"
+          ></textarea>
+        </div>
+
+        <button type="submit" id="submitBtn" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-3 rounded-xl shadow-sm transition text-sm">
+          Рассчитать прогноз продолжительности жизни
+        </button>
+      </form>
+    </section>
+
+    <!-- ПРАВАЯ КОЛОНКА: РЕЗУЛЬТАТЫ ПРОГНОЗА -->
+    <section class="lg:col-span-5 space-y-4">
+
+      <div id="emptyState" class="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500">
+        <div class="text-3xl mb-2">📈</div>
+        <p class="font-medium text-slate-700">Заполните анкету и нажмите «Рассчитать прогноз»</p>
+        <p class="text-xs mt-1">Система выполнит прагматичный расчёт ожидаемой продолжительности жизни относительно статистики вашего региона и пола.</p>
+      </div>
+
+      <div id="resultPanel" class="hidden space-y-4">
+
+        <!-- Главная карточка: Возраст, Текущий прогноз, Потенциал -->
+        <div class="bg-white rounded-2xl border border-emerald-200 shadow-sm p-5">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <span id="resCountryBadge" class="text-xs font-medium bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full">Регион: Россия</span>
+            <span id="resOfficialStat" class="text-[11px] font-medium bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-full">Средняя ОПЖ мужчин: 68.2 г.</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2 text-center bg-slate-50 rounded-xl p-3 border border-slate-200">
+            <div>
+              <div class="text-[11px] text-slate-500">Возраст сейчас</div>
+              <div id="resCurrentAge" class="text-xl font-bold text-slate-800">46 лет</div>
+              <div id="resBioAge" class="text-[11px] text-slate-500">По износу: 55 г.</div>
+            </div>
+            <div class="border-x border-slate-200 px-1">
+              <div class="text-[11px] text-slate-500">Ваш прогноз</div>
+              <div id="resPredicted" class="text-xl font-bold text-amber-600">59.8 лет</div>
+              <div id="resRemCurrent" class="text-[11px] font-semibold text-amber-800">Осталось: ~13.8 г.</div>
+            </div>
+            <div>
+              <div class="text-[11px] text-emerald-700 font-medium">Потенциал</div>
+              <div id="resPotential" class="text-xl font-bold text-emerald-700">76.4 лет</div>
+              <div id="resRemPotential" class="text-[11px] text-emerald-700 font-semibold">Останется: ~30.4 г.</div>
+            </div>
+          </div>
+
+          <!-- Визуальные полосы сравнения -->
+          <div class="mt-4 space-y-2 text-xs">
+            <div>
+              <div class="flex justify-between mb-0.5">
+                <span class="text-slate-600">Ожидаемый порог жизни (сейчас)</span>
+                <span id="barPredLabel" class="font-semibold">59.8 лет</span>
+              </div>
+              <div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                <div id="barPred" class="bg-amber-500 h-2.5 rounded-full transition-all duration-500" style="width: 60%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between mb-0.5">
+                <span class="text-emerald-800 font-medium">Потенциал (при здоровых привычках)</span>
+                <span id="barPotLabel" class="font-semibold text-emerald-700">76.4 лет</span>
+              </div>
+              <div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                <div id="barPot" class="bg-emerald-600 h-2.5 rounded-full transition-all duration-500" style="width: 76%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Карточки показателей -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-white rounded-xl border border-slate-200 p-3.5">
+            <div class="text-xs text-slate-500">Ресурс сердца и сосудов</div>
+            <div id="resAha" class="text-lg font-bold text-slate-800 mt-0.5">42 из 100</div>
+            <div class="text-[11px] text-slate-500">Комплексная оценка состояния</div>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 p-3.5">
+            <div class="text-xs text-slate-500">Риск сосудистых осложнений (10 лет)</div>
+            <div id="resScore2" class="text-lg font-bold text-slate-800 mt-0.5">18.4% &rarr; 5.2%</div>
+            <div class="text-[11px] text-slate-500">Сейчас &rarr; при выполнении советов</div>
+          </div>
+          <div id="savingsCard" class="bg-white rounded-xl border border-slate-200 p-3.5">
+            <div class="text-xs text-slate-500">Условная экономия (за 10 лет)</div>
+            <div id="resSavings" class="text-lg font-bold text-emerald-700 mt-0.5">~942 000 ₽</div>
+            <div class="text-[11px] text-slate-500">Ориентировочно при отказе от вредного</div>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 p-3.5">
+            <div class="text-xs text-slate-500">Осталось дней (по прогнозу)</div>
+            <div id="resDays" class="text-lg font-bold text-slate-800 mt-0.5">5 037 дн.</div>
+            <div class="text-[11px] text-slate-500">При сохранении текущих привычек</div>
+          </div>
+        </div>
+
+        <!-- ОТДЕЛЬНЫЙ БЛОК РАЗБОРА АНАЛИЗОВ -->
+        <div id="labResultBlock" class="hidden bg-blue-50/70 border border-blue-200 rounded-2xl p-5 text-xs space-y-2">
+          <div class="flex items-center justify-between">
+            <h3 id="labResTitle" class="text-sm font-bold text-blue-950">🧪 Разбор прикреплённых анализов</h3>
+            <span id="labResImpact" class="font-semibold px-2.5 py-0.5 rounded-full bg-white border border-blue-200 text-blue-900"></span>
+          </div>
+          <div id="labResAbnormalities" class="text-amber-900 font-medium"></div>
+          <div id="labResNormals" class="text-emerald-800"></div>
+          <p id="labResSummary" class="text-slate-700 leading-relaxed"></p>
+          <div id="labResAction" class="text-blue-950 font-semibold pt-1"></div>
+        </div>
+
+        <!-- Предупреждения -->
+        <div id="alertsBox" class="hidden bg-amber-50 border border-amber-300 rounded-xl p-4 text-xs text-amber-900 space-y-1.5">
+          <div class="font-bold text-amber-950">⚠️ На что обратить внимание:</div>
+          <ul id="alertsList" class="list-disc pl-4 space-y-1"></ul>
+        </div>
+
+        <!-- Персональный прогноз -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-5">
+          <h3 class="text-sm font-bold text-slate-900 mb-2">📋 Персональный прогноз и рекомендации</h3>
+          <div id="resAiText" class="text-xs leading-relaxed text-slate-700 whitespace-pre-line"></div>
+        </div>
+
+        <!-- Доказательная база -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-5">
+          <h3 class="text-sm font-bold text-slate-900 mb-1">🔬 Доказательная база и вклад ваших привычек</h3>
+          <p class="text-[11px] text-slate-500 mb-3">Как ваши защитные привычки (+) и факторы риска (-) влияют на прогноз относительно средней статистики региона (ВОЗ, ESC SCORE2, AHA LE8, The Lancet, NEJM):</p>
+          <div id="resFacts" class="space-y-3 text-xs"></div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let currentLabReportData = null;
+
+    async function handleLabFileUpload(event) {
+      const fileInput = event.target;
+      if (!fileInput.files || fileInput.files.length === 0) return;
+
+      const file = fileInput.files[0];
+      const badgeEl = document.getElementById("labUploadBadge");
+      const clearBtn = document.getElementById("clearLabBtn");
+
+      badgeEl.classList.remove("hidden");
+      badgeEl.className = "mt-2 text-xs font-medium text-slate-700 bg-slate-100 border border-slate-300 rounded-lg px-3 py-1.5";
+      badgeEl.textContent = "⏳ Загрузка файла «" + file.name + "»...";
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const res = await fetch("/api/parse-labs", {
+          method: "POST",
+          body: formData
+        });
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.detail || "Ошибка чтения файла");
+        }
+        const data = await res.json();
+        currentLabReportData = data;
+        clearBtn.classList.remove("hidden");
+
+        badgeEl.className = "mt-2 text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5";
+        badgeEl.textContent = `✅ Файл «${data.filename}» успешно загружен`;
+      } catch (err) {
+        currentLabReportData = null;
+        badgeEl.className = "mt-2 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5";
+        badgeEl.textContent = "❌ Ошибка загрузки: " + err.message;
+      }
+    }
+
+    function clearLabFile() {
+      currentLabReportData = null;
+      document.getElementById("lab_file_input").value = "";
+      document.getElementById("labUploadBadge").classList.add("hidden");
+      document.getElementById("clearLabBtn").classList.add("hidden");
+      document.getElementById("labResultBlock").classList.add("hidden");
+    }
+
+    function handleCountryChange() {
+      const country = document.getElementById("country_code").value;
+      const ruWrapper = document.getElementById("ruRegionWrapper");
+      if (country === "RU") {
+        ruWrapper.classList.remove("hidden");
+      } else {
+        ruWrapper.classList.add("hidden");
+      }
+    }
+
+    function toggleMedicationsBlock() {
+      const chronicCheckboxes = document.querySelectorAll(".chronic-cb");
+      const anyChecked = Array.from(chronicCheckboxes).some(cb => cb.checked);
+      const medSection = document.getElementById("medicationsSection");
+
+      if (anyChecked) {
+        medSection.classList.remove("hidden");
+      } else {
+        medSection.classList.add("hidden");
+        document.querySelectorAll(".med-cb").forEach(cb => { cb.checked = false; });
+      }
+    }
+
+    function fillDemoAlexander() {
+      document.getElementById("country_code").value = "RU";
+      handleCountryChange();
+      document.getElementById("ru_region_code").value = "RU_MOW";
+      document.getElementById("age").value = 46;
+      document.getElementById("gender").value = "male";
+      document.getElementById("height_cm").value = 178;
+      document.getElementById("weight_kg").value = 92;
+      document.getElementById("lifestyle_activity").value = "sedentary";
+      document.getElementById("sleep_hours").value = 6.0;
+      document.getElementById("daily_steps").value = 3500;
+      document.getElementById("smoking_cigs_per_day").value = 10;
+      document.getElementById("alcohol_drinks_per_week").value = 6;
+      document.getElementById("fastfood_times_per_week").value = 5;
+      document.getElementById("stress_level").value = "high";
+      document.getElementById("hazardous_work").value = "no";
+
+      document.querySelectorAll(".chronic-cb").forEach(cb => { cb.checked = false; });
+      document.getElementById("has_hypertension").checked = true;
+      toggleMedicationsBlock();
+      document.getElementById("meds_antihypertensive").checked = false;
+    }
+
+    function fillDemoHealthy() {
+      document.getElementById("country_code").value = "RU";
+      handleCountryChange();
+      document.getElementById("ru_region_code").value = "RU_SPE";
+      document.getElementById("age").value = 38;
+      document.getElementById("gender").value = "male";
+      document.getElementById("height_cm").value = 180;
+      document.getElementById("weight_kg").value = 74;
+      document.getElementById("lifestyle_activity").value = "active_gym";
+      document.getElementById("sleep_hours").value = 7.5;
+      document.getElementById("daily_steps").value = 9500;
+      document.getElementById("smoking_cigs_per_day").value = 0;
+      document.getElementById("alcohol_drinks_per_week").value = 0;
+      document.getElementById("fastfood_times_per_week").value = 0;
+      document.getElementById("stress_level").value = "low";
+      document.getElementById("hazardous_work").value = "no";
+
+      document.querySelectorAll(".chronic-cb").forEach(cb => { cb.checked = false; });
+      toggleMedicationsBlock();
+    }
+
+    async function submitPrediction(event) {
+      event.preventDefault();
+      const btn = document.getElementById("submitBtn");
+      btn.disabled = true;
+      btn.textContent = "⏳ Выполняется прагматичный расчёт...";
+
+      const payload = {
+        country_code: document.getElementById("country_code").value,
+        ru_region_code: document.getElementById("ru_region_code").value,
+        age: parseInt(document.getElementById("age").value, 10),
+        gender: document.getElementById("gender").value,
+        height_cm: parseFloat(document.getElementById("height_cm").value),
+        weight_kg: parseFloat(document.getElementById("weight_kg").value),
+        lifestyle_activity: document.getElementById("lifestyle_activity").value,
+        sleep_hours: parseFloat(document.getElementById("sleep_hours").value),
+        daily_steps: parseInt(document.getElementById("daily_steps").value, 10),
+        smoking_cigs_per_day: parseInt(document.getElementById("smoking_cigs_per_day").value, 10),
+        alcohol_drinks_per_week: parseInt(document.getElementById("alcohol_drinks_per_week").value, 10),
+        fastfood_times_per_week: parseInt(document.getElementById("fastfood_times_per_week").value, 10),
+        stress_level: document.getElementById("stress_level").value,
+        hazardous_work: document.getElementById("hazardous_work").value,
+
+        past_smoking_years: parseInt(document.getElementById("past_smoking_years").value || "0", 10),
+        past_smoking_cigs_per_day: parseInt(document.getElementById("past_smoking_cigs_per_day").value || "0", 10),
+        years_since_quitting_smoking: parseInt(document.getElementById("years_since_quitting_smoking").value || "0", 10),
+        past_heavy_alcohol: document.getElementById("past_heavy_alcohol").value,
+
+        has_hypertension: document.getElementById("has_hypertension").checked,
+        has_diabetes: document.getElementById("has_diabetes").checked,
+        has_atherosclerosis: document.getElementById("has_atherosclerosis").checked,
+        has_cvd_infarction_angina: document.getElementById("has_cvd_infarction_angina").checked,
+        has_stroke_tia: document.getElementById("has_stroke_tia").checked,
+        has_thrombosis_pe: document.getElementById("has_thrombosis_pe").checked,
+        has_rheumatoid_arthritis: document.getElementById("has_rheumatoid_arthritis").checked,
+        has_oncology: document.getElementById("has_oncology").checked,
+        has_ibd_polyps: document.getElementById("has_ibd_polyps").checked,
+        has_urinary_infection: document.getElementById("has_urinary_infection").checked,
+
+        meds_antihypertensive: document.getElementById("meds_antihypertensive").checked,
+        meds_statins_lipid: document.getElementById("meds_statins_lipid").checked,
+        meds_anticoagulants: document.getElementById("meds_anticoagulants").checked,
+        meds_antidiabetic: document.getElementById("meds_antidiabetic").checked,
+        meds_antiarrhythmic: document.getElementById("meds_antiarrhythmic").checked,
+        meds_asthma_copd: document.getElementById("meds_asthma_copd").checked,
+        meds_glucocorticoids: document.getElementById("meds_glucocorticoids").checked,
+        meds_daily_nsaids: document.getElementById("meds_daily_nsaids").checked,
+
+        custom_health_nuance: document.getElementById("custom_health_nuance").value.trim() || null,
+        lab_report_data: currentLabReportData
+      };
+
+      try {
+        const response = await fetch("/api/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        renderResult(payload.age, data);
+      } catch (err) {
+        alert("Ошибка соединения с сервером: " + err);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Рассчитать прогноз продолжительности жизни";
+      }
+    }
+
+    function renderResult(currentAge, data) {
+      const m = data.metrics;
+      document.getElementById("emptyState").classList.add("hidden");
+      document.getElementById("resultPanel").classList.remove("hidden");
+
+      document.getElementById("resCountryBadge").textContent = m.country_name;
+      document.getElementById("resOfficialStat").textContent = `Средняя ОПЖ ${m.gender_label}: ${m.official_stat_avg} г.`;
+
+      document.getElementById("resCurrentAge").textContent = currentAge + " лет";
+      document.getElementById("resBioAge").textContent = "По организму: " + m.biological_age + " г.";
+
+      const predEl = document.getElementById("resPredicted");
+      predEl.textContent = m.predicted_expectancy + " лет";
+      predEl.className = m.years_delta >= 0
+        ? "text-xl font-bold text-emerald-700"
+        : "text-xl font-bold text-amber-600";
+
+      document.getElementById("resRemCurrent").textContent = `Осталось: ~${m.remaining_years_current} г.`;
+
+      document.getElementById("resPotential").textContent = m.potential_expectancy + " лет";
+      if (m.remaining_years_gain >= 0.4) {
+        document.getElementById("resRemPotential").textContent = `Останется: ~${m.remaining_years_potential} г. (+${m.remaining_years_gain} г.)`;
+      } else {
+        document.getElementById("resRemPotential").textContent = `Максимум резерва (~${m.remaining_years_potential} г.)`;
+      }
+
+      document.getElementById("barPredLabel").textContent = `${m.predicted_expectancy} лет (осталось ~${m.remaining_years_current} г.)`;
+      document.getElementById("barPotLabel").textContent = m.remaining_years_gain >= 0.4
+        ? `${m.potential_expectancy} лет (+${m.remaining_years_gain} г. резерва)`
+        : `${m.potential_expectancy} лет (оптимальный режим)`;
+      document.getElementById("barPred").style.width = Math.min(100, m.predicted_expectancy) + "%";
+      document.getElementById("barPot").style.width = Math.min(100, m.potential_expectancy) + "%";
+
+      document.getElementById("resAha").textContent = m.aha_le8_score + " из 100";
+      document.getElementById("resScore2").innerHTML = `${m.cvd_10yr_risk_percent}% &rarr; <span class="text-emerald-700">${m.cvd_10yr_risk_potential_percent}%</span>`;
+      document.getElementById("resDays").textContent = m.remaining_days.toLocaleString("ru-RU") + " дн.";
+
+      const savingsCard = document.getElementById("savingsCard");
+      if (m.is_russia) {
+        savingsCard.classList.remove("hidden");
+        document.getElementById("resSavings").textContent = "~" + m.ten_year_savings_rub.toLocaleString("ru-RU") + " ₽";
+      } else {
+        savingsCard.classList.add("hidden");
+      }
+
+      const labBlock = document.getElementById("labResultBlock");
+      if (m.lab_summary_info) {
+        const lab = m.lab_summary_info;
+        labBlock.classList.remove("hidden");
+        document.getElementById("labResTitle").textContent = `🧪 Разбор анализов (${lab.filename})`;
+        const impSign = lab.impact_years > 0 ? "+" : "";
+        document.getElementById("labResImpact").textContent = `Влияние на прогноз: ${impSign}${lab.impact_years} г.`;
+
+        const abnEl = document.getElementById("labResAbnormalities");
+        if (lab.detected_abnormalities && lab.detected_abnormalities.length > 0) {
+          abnEl.textContent = "Выявленные отклонения: " + lab.detected_abnormalities.join("; ");
+          abnEl.classList.remove("hidden");
+        } else {
+          abnEl.classList.add("hidden");
+        }
+
+        const normEl = document.getElementById("labResNormals");
+        if (lab.normal_markers && lab.normal_markers.length > 0) {
+          normEl.textContent = "В пределах нормы: " + lab.normal_markers.join(", ");
+          normEl.classList.remove("hidden");
+        } else {
+          normEl.classList.add("hidden");
+        }
+
+        document.getElementById("labResSummary").textContent = lab.clinical_summary;
+        document.getElementById("labResAction").textContent = "👉 Рекомендация по анализам: " + lab.recommended_action;
+      } else {
+        labBlock.classList.add("hidden");
+      }
+
+      const alertsBox = document.getElementById("alertsBox");
+      const alertsList = document.getElementById("alertsList");
+      alertsList.innerHTML = "";
+      if (m.medical_alerts && m.medical_alerts.length > 0) {
+        alertsBox.classList.remove("hidden");
+        m.medical_alerts.forEach(a => {
+          const li = document.createElement("li");
+          li.textContent = a;
+          alertsList.appendChild(li);
+        });
+      } else {
+        alertsBox.classList.add("hidden");
+      }
+
+      document.getElementById("resAiText").textContent = data.ai_explanation;
+
+      const factsContainer = document.getElementById("resFacts");
+      factsContainer.innerHTML = "";
+      data.who_facts.forEach(f => {
+        const div = document.createElement("div");
+        const isPositive = f.impact_years > 0;
+        div.className = isPositive
+          ? "p-3 rounded-xl bg-emerald-50/60 border border-emerald-200"
+          : "p-3 rounded-xl bg-slate-50 border border-slate-200";
+        const impactBadge = f.impact_years < 0
+          ? `<span class="text-amber-700 font-semibold">${f.impact_years} г.</span>`
+          : `<span class="text-emerald-700 font-semibold">+${f.impact_years} г.</span>`;
+        div.innerHTML = `
+          <div class="flex justify-between items-center font-semibold text-slate-800 mb-1">
+            <span>${f.title}</span>
+            ${impactBadge}
+          </div>
+          <p class="text-slate-600 mb-1.5">${f.fact}</p>
+          <div class="text-emerald-800 font-medium">👉 Рекомендация: ${f.action}</div>
+        `;
+        factsContainer.appendChild(div);
+      });
+    }
+  </script>
+</body>
+</html>
