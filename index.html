@@ -378,6 +378,195 @@
           <div id="resAiText" class="text-xs leading-relaxed text-slate-700 whitespace-pre-line"></div>
         </div>
 
+        <!-- БЛОК: ПОРТРЕТ ИЗ БУДУЩЕГО (СЛАЙДЕР ДО / ПОСЛЕ) -->
+        <div id="portraitSection" class="bg-white rounded-2xl border border-purple-200 shadow-sm p-5 space-y-4">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <span class="text-2xl">📸</span>
+              <div>
+                <h3 class="text-sm font-bold text-slate-900">Портрет через 20 лет: визуализация прогноза</h3>
+                <p class="text-[11px] text-slate-500">Посмотрите, как ваш образ жизни и здоровье отразятся на лице и теле</p>
+              </div>
+            </div>
+            <span class="text-[10px] font-semibold bg-purple-100 text-purple-800 px-2.5 py-1 rounded-full whitespace-nowrap">
+              AI-генерация
+            </span>
+          </div>
+
+          <!-- Состояние 1: Выбор и загрузка фото -->
+          <div id="portraitUploadState" class="space-y-3">
+            <div
+              id="portraitDropZone"
+              onclick="document.getElementById('portraitFileInput').click()"
+              class="border-2 border-dashed border-purple-200 hover:border-purple-400 rounded-xl p-5 text-center cursor-pointer bg-purple-50/30 hover:bg-purple-50/60 transition group"
+            >
+              <input
+                type="file"
+                id="portraitFileInput"
+                accept="image/jpeg,image/png,image/webp"
+                onchange="handlePortraitFileSelect(event)"
+                class="hidden"
+              />
+              <div class="mx-auto w-12 h-12 mb-2 rounded-full bg-purple-100 group-hover:scale-105 transition flex items-center justify-center text-purple-700 text-xl">
+                📷
+              </div>
+              <p class="text-xs font-semibold text-slate-800 mb-0.5">Нажмите или перетащите сюда своё актуальное фото</p>
+              <p class="text-[11px] text-slate-500">Рекомендуется чёткое фото в полный рост или поясной портрет при хорошем свете (JPG, PNG до 10 МБ)</p>
+            </div>
+
+            <!-- Превью выбранного фото -->
+            <div id="portraitFilePreview" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <img id="portraitThumb" class="w-12 h-12 object-cover rounded-lg border border-slate-200 shadow-xs flex-shrink-0" alt="Preview" />
+                <div class="min-w-0">
+                  <div id="portraitFileName" class="text-xs font-medium text-slate-800 truncate">photo.jpg</div>
+                  <div id="portraitFileSize" class="text-[11px] text-slate-500">1.2 МБ</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onclick="clearPortraitFile()"
+                class="text-xs text-red-600 hover:text-red-800 font-medium px-2 py-1"
+              >
+                ✕ Удалить
+              </button>
+            </div>
+
+            <div class="bg-slate-50 rounded-lg p-2.5 text-[11px] text-slate-600 border border-slate-200/70 space-y-1">
+              <div class="font-semibold text-slate-700">💡 Как строится портрет из будущего:</div>
+              <ul class="list-disc pl-4 space-y-0.5 text-slate-500">
+                <li>Черты вашего лица, узнаваемость и композиция строго сохраняются.</li>
+                <li>Нейросеть проецирует старение на 20 лет вперёд с учётом рассчитанного износа (курение, алкоголь, стресс, вес, сон и сосудистый риск).</li>
+                <li>После генерации откроется интерактивная шторка-слайдер для наглядного сравнения «До» и «После».</li>
+              </ul>
+            </div>
+
+            <button
+              type="button"
+              id="generatePortraitBtn"
+              onclick="startPortraitGeneration()"
+              disabled
+              class="w-full bg-purple-700 hover:bg-purple-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl shadow-xs transition text-xs flex items-center justify-center gap-2"
+            >
+              <span>✨ Сгенерировать фото через 20 лет</span>
+            </button>
+          </div>
+
+          <!-- Состояние 2: Генерация в процессе -->
+          <div id="portraitLoadingState" class="hidden py-8 px-4 text-center space-y-3 bg-purple-50/40 rounded-xl border border-purple-100">
+            <div class="inline-block animate-spin rounded-full h-9 w-9 border-2 border-purple-600 border-t-transparent"></div>
+            <div>
+              <div class="text-xs font-bold text-purple-950">Генерируем ваш портрет из будущего...</div>
+              <p class="text-[11px] text-purple-700 mt-1 max-w-sm mx-auto">
+                Нейросеть сохраняет ваши черты лица и накладывает персональный профиль возрастных изменений на основе прогноза на 20 лет вперёд.
+              </p>
+            </div>
+            <div class="text-[10px] text-slate-500">Обычно это занимает 15–30 секунд...</div>
+          </div>
+
+          <!-- Состояние 3: Ошибка -->
+          <div id="portraitErrorState" class="hidden bg-red-50 border border-red-200 rounded-xl p-4 text-xs text-red-800 space-y-2">
+            <div class="font-bold text-red-950 flex items-center gap-1.5">
+              <span>⚠️ Не удалось сгенерировать портрет</span>
+            </div>
+            <p id="portraitErrorMessage" class="text-red-700 leading-relaxed"></p>
+            <div class="pt-1">
+              <button
+                type="button"
+                onclick="retryPortraitUpload()"
+                class="bg-white border border-red-300 hover:bg-red-50 text-red-700 font-semibold px-3 py-1.5 rounded-lg text-xs transition"
+              >
+                🔄 Попробовать снова
+              </button>
+            </div>
+          </div>
+
+          <!-- Состояние 4: Результат со шторкой-слайдером (Before / After Comparison) -->
+          <div id="portraitResultState" class="hidden space-y-3">
+            <!-- Контейнер слайдера -->
+            <div
+              id="sliderContainer"
+              class="relative w-full aspect-[4/5] sm:aspect-[3/4] max-h-[520px] bg-slate-900 rounded-xl overflow-hidden select-none cursor-ew-resize border border-slate-300 shadow-md touch-none"
+            >
+              <!-- Правое фото (Сгенерированное через 20 лет) - нижний слой -->
+              <img
+                id="imgAfter"
+                src=""
+                alt="Через 20 лет"
+                class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none"
+              />
+
+              <!-- Левое фото (Оригинал сейчас) - верхний слой с обрезкой clip-path -->
+              <img
+                id="imgBefore"
+                src=""
+                alt="Сейчас"
+                class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none"
+                style="clip-path: inset(0 50% 0 0);"
+              />
+
+              <!-- Разделительная линия шторки -->
+              <div
+                id="sliderHandle"
+                class="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_10px_rgba(0,0,0,0.6)] pointer-events-none"
+                style="left: 50%;"
+              >
+                <!-- Круглая кнопка-ползунок -->
+                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white shadow-lg border-2 border-purple-600 flex items-center justify-center text-purple-700 font-bold text-xs select-none">
+                  ◀▶
+                </div>
+              </div>
+
+              <!-- Бейджи "Вы сейчас" и "Через 20 лет" -->
+              <div class="absolute top-3 left-3 bg-black/65 backdrop-blur-xs text-white text-[11px] font-medium px-2.5 py-1 rounded-full pointer-events-none shadow-xs">
+                📍 Вы сейчас
+              </div>
+              <div class="absolute top-3 right-3 bg-purple-900/80 backdrop-blur-xs text-white text-[11px] font-medium px-2.5 py-1 rounded-full pointer-events-none shadow-xs">
+                🔮 Через 20 лет
+              </div>
+
+              <!-- Подсказка внизу слайдера -->
+              <div class="absolute bottom-2 inset-x-0 text-center pointer-events-none">
+                <span class="inline-block bg-black/55 backdrop-blur-xs text-white/90 text-[10px] px-3 py-0.5 rounded-full shadow-xs">
+                  ↔ Тяните ползунок влево и вправо для сравнения
+                </span>
+              </div>
+            </div>
+
+            <!-- Дополнительная информация и кнопки под слайдером -->
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
+              <button
+                type="button"
+                onclick="resetPortraitView()"
+                class="text-slate-600 hover:text-slate-900 font-medium py-1 px-2.5 rounded-lg border border-slate-300 hover:bg-slate-100 transition"
+              >
+                🔄 Загрузить другое фото
+              </button>
+              <div class="flex gap-2">
+                <a
+                  id="downloadOriginalBtn"
+                  href="#"
+                  target="_blank"
+                  download="photo_now.jpg"
+                  class="text-slate-600 hover:text-slate-900 font-medium py-1 px-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition text-[11px]"
+                >
+                  Оригинал
+                </a>
+                <a
+                  id="downloadFutureBtn"
+                  href="#"
+                  target="_blank"
+                  download="future_portrait_20y.png"
+                  class="bg-purple-700 hover:bg-purple-800 text-white font-medium py-1 px-3 rounded-lg transition text-[11px] shadow-xs"
+                >
+                  ⬇️ Скачать портрет
+                </a>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
         <!-- Доказательная база -->
         <div class="bg-white rounded-2xl border border-slate-200 p-5">
           <h3 class="text-sm font-bold text-slate-900 mb-1">🔬 Доказательная база и вклад ваших привычек</h3>
@@ -391,6 +580,8 @@
 
   <script>
     let currentLabReportData = null;
+    let currentPredictionId = null;
+    let selectedPortraitFile = null;
 
     async function handleLabFileUpload(event) {
       const fileInput = event.target;
@@ -572,6 +763,7 @@
     }
 
     function renderResult(currentAge, data) {
+      currentPredictionId = data.id;
       const m = data.metrics;
       document.getElementById("emptyState").classList.add("hidden");
       document.getElementById("resultPanel").classList.remove("hidden");
@@ -662,6 +854,9 @@
 
       document.getElementById("resAiText").textContent = data.ai_explanation;
 
+      // Сбрасываем отображение блока портрета при новом расчёте
+      resetPortraitView();
+
       const factsContainer = document.getElementById("resFacts");
       factsContainer.innerHTML = "";
       data.who_facts.forEach(f => {
@@ -684,6 +879,182 @@
         factsContainer.appendChild(div);
       });
     }
+
+    // =========================================================================
+    // ЛОГИКА БЛОКА «ПОРТРЕТ ИЗ БУДУЩЕГО» И ШТОРКИ-СЛАЙДЕРА
+    // =========================================================================
+
+    function handlePortraitFileSelect(event) {
+      const file = event.target.files && event.target.files[0];
+      if (file) {
+        applyPortraitFile(file);
+      }
+    }
+
+    function applyPortraitFile(file) {
+      const validTypes = ["image/jpeg", "image/png", "image/webp"];
+      if (!validTypes.includes(file.type)) {
+        alert("Пожалуйста, выберите изображение в формате JPG, PNG или WebP");
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        alert("Размер файла превышает 10 МБ. Пожалуйста, выберите фото меньшего размера");
+        return;
+      }
+
+      selectedPortraitFile = file;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        document.getElementById("portraitThumb").src = e.target.result;
+        document.getElementById("portraitFileName").textContent = file.name;
+        document.getElementById("portraitFileSize").textContent = (file.size / (1024 * 1024)).toFixed(1) + " МБ";
+        document.getElementById("portraitFilePreview").classList.remove("hidden");
+        document.getElementById("generatePortraitBtn").disabled = false;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearPortraitFile() {
+      selectedPortraitFile = null;
+      document.getElementById("portraitFileInput").value = "";
+      document.getElementById("portraitFilePreview").classList.add("hidden");
+      document.getElementById("generatePortraitBtn").disabled = true;
+    }
+
+    async function startPortraitGeneration() {
+      if (!selectedPortraitFile) {
+        alert("Сначала выберите или загрузите ваше актуальное фото");
+        return;
+      }
+      if (!currentPredictionId) {
+        alert("Сначала выполните расчёт прогноза (нажмите кнопку «Рассчитать прогноз»)");
+        return;
+      }
+
+      // Переключаем интерфейс в режим генерации
+      document.getElementById("portraitUploadState").classList.add("hidden");
+      document.getElementById("portraitErrorState").classList.add("hidden");
+      document.getElementById("portraitResultState").classList.add("hidden");
+      document.getElementById("portraitLoadingState").classList.remove("hidden");
+
+      const formData = new FormData();
+      formData.append("file", selectedPortraitFile);
+
+      try {
+        const res = await fetch(`/api/generate-portrait/${currentPredictionId}`, {
+          method: "POST",
+          body: formData
+        });
+
+        if (!res.ok) {
+          let errText = "Не удалось сгенерировать портрет";
+          try {
+            const errJson = await res.json();
+            if (errJson && errJson.detail) errText = errJson.detail;
+          } catch (_) {}
+          throw new Error(errText);
+        }
+
+        const data = await res.json();
+
+        // Заполняем изображения для шторки-слайдера
+        document.getElementById("imgBefore").src = data.original_url;
+        document.getElementById("imgAfter").src = data.future_url;
+
+        // Настраиваем ссылки на скачивание
+        const dlOrig = document.getElementById("downloadOriginalBtn");
+        if (dlOrig) dlOrig.href = data.original_url;
+        const dlFuture = document.getElementById("downloadFutureBtn");
+        if (dlFuture) dlFuture.href = data.future_url;
+
+        // Возвращаем ползунок слайдера в центр (50%)
+        document.getElementById("imgBefore").style.clipPath = "inset(0 50% 0 0)";
+        document.getElementById("sliderHandle").style.left = "50%";
+
+        document.getElementById("portraitLoadingState").classList.add("hidden");
+        document.getElementById("portraitResultState").classList.remove("hidden");
+
+        // Инициализируем интерактивную шторку
+        initComparisonSlider();
+      } catch (err) {
+        document.getElementById("portraitLoadingState").classList.add("hidden");
+        document.getElementById("portraitErrorMessage").textContent = err.message || "Произошла ошибка при генерации изображения";
+        document.getElementById("portraitErrorState").classList.remove("hidden");
+      }
+    }
+
+    function retryPortraitUpload() {
+      document.getElementById("portraitErrorState").classList.add("hidden");
+      document.getElementById("portraitUploadState").classList.remove("hidden");
+    }
+
+    function resetPortraitView() {
+      document.getElementById("portraitResultState").classList.add("hidden");
+      document.getElementById("portraitErrorState").classList.add("hidden");
+      document.getElementById("portraitLoadingState").classList.add("hidden");
+      document.getElementById("portraitUploadState").classList.remove("hidden");
+    }
+
+    function initComparisonSlider() {
+      const container = document.getElementById("sliderContainer");
+      const imgBefore = document.getElementById("imgBefore");
+      const sliderHandle = document.getElementById("sliderHandle");
+      if (!container || !imgBefore || !sliderHandle) return;
+
+      let isDragging = false;
+
+      function updateSlider(clientX) {
+        const rect = container.getBoundingClientRect();
+        if (rect.width <= 0) return;
+        let pct = ((clientX - rect.left) / rect.width) * 100;
+        if (pct < 1) pct = 1;
+        if (pct > 99) pct = 99;
+        imgBefore.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+        sliderHandle.style.left = `${pct}%`;
+      }
+
+      container.onpointerdown = (e) => {
+        isDragging = true;
+        try { container.setPointerCapture(e.pointerId); } catch (_) {}
+        updateSlider(e.clientX);
+      };
+
+      container.onpointermove = (e) => {
+        if (!isDragging) return;
+        updateSlider(e.clientX);
+      };
+
+      container.onpointerup = (e) => {
+        isDragging = false;
+        try { container.releasePointerCapture(e.pointerId); } catch (_) {}
+      };
+
+      container.onpointercancel = (e) => {
+        isDragging = false;
+      };
+    }
+
+    // Инициализация Drag and Drop для зоны загрузки фото
+    window.addEventListener("DOMContentLoaded", () => {
+      const dropZone = document.getElementById("portraitDropZone");
+      if (dropZone) {
+        dropZone.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          dropZone.classList.add("border-purple-500", "bg-purple-100/50");
+        });
+        dropZone.addEventListener("dragleave", () => {
+          dropZone.classList.remove("border-purple-500", "bg-purple-100/50");
+        });
+        dropZone.addEventListener("drop", (e) => {
+          e.preventDefault();
+          dropZone.classList.remove("border-purple-500", "bg-purple-100/50");
+          if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            applyPortraitFile(e.dataTransfer.files[0]);
+          }
+        });
+      }
+    });
   </script>
 </body>
 </html>

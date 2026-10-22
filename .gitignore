@@ -11,3 +11,7 @@ __pycache__/
 *.db
 *.sqlite3
 .DS_Store
+
+# Сгенерированные и загруженные фото пользователей
+portraits/*
+!portraits/.gitkeep
