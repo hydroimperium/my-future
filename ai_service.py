@@ -91,7 +91,7 @@ def search_authoritative_medical_web(query_text: str) -> tuple[str, list[dict], 
         except ImportError:
             from duckduckgo_search import DDGS
 
-        with DDGS() as ddgs:
+        with DDGS(timeout=6) as ddgs:
             results = list(ddgs.text(search_query, region="ru-ru", max_results=6))
             for r in results:
                 title = r.get("title", "Медицинская публикация")
@@ -466,6 +466,10 @@ def generate_future_explanation(user_data: UserHabitsInput, metrics: dict, who_f
     lab_info = metrics.get("lab_summary_info")
     custom_info = metrics.get("custom_nuance_info")
     factors_years = metrics.get("factors_years", {})
+    pace_curr = metrics.get("pace_of_aging_current", 1.0)
+    pace_pot = metrics.get("pace_of_aging_potential", 0.85)
+    cvd_30_curr = metrics.get("cvd_30yr_risk_percent", 10.0)
+    cvd_30_pot = metrics.get("cvd_30yr_risk_potential_percent", 5.0)
 
     gender_label = metrics.get("gender_label", "жителей")
     stat_avg = metrics.get("official_stat_avg", 73.4)
@@ -482,7 +486,8 @@ def generate_future_explanation(user_data: UserHabitsInput, metrics: dict, who_f
         f"📊 КЛЮЧЕВЫЕ ПОКАЗАТЕЛИ ПРОГНОЗА ({metrics['country_name']}):\n"
         f"• Ваш возраст сейчас: {user_data.age} лет (по состоянию организма — около {metrics['biological_age']} лет).\n"
         f"• Ожидаемая продолжительность жизни (при текущих данных): {metrics['predicted_expectancy']} лет — осталось около {rem_curr} лет ({diff_vs_stat_str} средней статистики {gender_label} в регионе: {stat_avg} г.).\n"
-        f"{potential_line}"
+        f"{potential_line}\n"
+        f"• Темп старения организма: {pace_curr} г. износа за 1 календарный год (при коррекции привычек замедлится до {pace_pot} г./год)."
     )
 
     # Положительные факторы формируются СТРОГО с учетом перекрёстной проверки противоречий
@@ -552,11 +557,29 @@ def generate_future_explanation(user_data: UserHabitsInput, metrics: dict, who_f
     if alerts:
         alerts_block = "\n\nОбратите внимание:\n" + "\n".join([f"⚠️ {a}" for a in alerts])
 
+    organ_systems = metrics.get("organ_systems", [])
+    systems_summary_parts = []
+    worst_system = None
+    min_score = 999
+    for s in organ_systems:
+        t = s.get("title", s.get("id"))
+        cs = s.get("current_score", 0)
+        ps = s.get("potential_score", 0)
+        lbl = s.get("status_label", "")
+        systems_summary_parts.append(f"{t}: {cs}% (потенциал до {ps}%, статус: {lbl})")
+        if cs < min_score:
+            min_score = cs
+            worst_system = t
+    systems_summary_str = "; ".join(systems_summary_parts) if systems_summary_parts else "Данные рассчитываются"
+    worst_system_hint = f"Самая уязвимая система сейчас — «{worst_system}» ({min_score}% ресурса)." if worst_system else ""
+
     pos_fallback_note = f" Ваши сильные стороны, которые уже прибавляют годы к прогнозу: {positive_summary_str}." if positive_notes else ""
 
     fallback_body = (
         f"Сейчас общий ресурс вашего сердца и сосудов оценивается на {metrics['aha_le8_score']} из 100 баллов, "
-        f"а риск серьёзных сосудистых осложнений в ближайшие 10 лет составляет около {metrics['cvd_10yr_risk_percent']}%.{pos_fallback_note} "
+        f"темп биологического старения — {pace_curr} г./год (при коррекции замедлится до {pace_pot} г./год), "
+        f"а риск серьёзных сосудистых осложнений в ближайшие 10 лет составляет около {metrics['cvd_10yr_risk_percent']}% "
+        f"(на 30 лет: {cvd_30_curr}% с возможностью снижения до {cvd_30_pot}%). {worst_system_hint}{pos_fallback_note} "
         f"При корректировке управляемых факторов ваш запас предстоящих лет составит до {rem_pot} лет.{savings_sentence_fallback}{meds_note}"
         f"{lab_fallback_paragraph}"
         f"{custom_fallback_paragraph}"
@@ -577,6 +600,8 @@ def generate_future_explanation(user_data: UserHabitsInput, metrics: dict, who_f
                 "pred": metrics["predicted_expectancy"],
                 "pot": metrics["potential_expectancy"],
                 "bio": metrics["biological_age"],
+                "pace": pace_curr,
+                "cvd30": cvd_30_curr,
                 "lab": lab_info.get("impact_years") if lab_info else None,
                 "cust": custom_info.get("impact_years") if custom_info else None,
             }
@@ -611,15 +636,15 @@ def generate_future_explanation(user_data: UserHabitsInput, metrics: dict, who_f
 1. Регион и статистика: {metrics['country_name']}. Средняя продолжительность жизни {gender_label} в регионе: {stat_avg} лет. Прогноз пользователя: {metrics['predicted_expectancy']} лет ({diff_vs_stat_str} среднего по региону, осталось прожить около {rem_curr} лет). Потенциал: {metrics['potential_expectancy']} лет (останется около {rem_pot} лет, резерв +{gain_years} лет). Возраст по состоянию организма: {metrics['biological_age']} лет.
 2. Подтвержденные положительные привычки: {positive_summary_str}.
 3. Образ жизни и физическая активность: {lifestyle_desc}, шагов в день: {user_data.daily_steps}.
-4. Сердце, сосуды и лекарства: ресурс сердца {metrics['aha_le8_score']} из 100 баллов. Риск сосудистых осложнений за 10 лет: сейчас {metrics['cvd_10yr_risk_percent']}% -> потенциал {metrics['cvd_10yr_risk_potential_percent']}%. Защита от принимаемых лекарств: +{med_saved} лет. {savings_prompt_instruction}
+4. Сердце, сосуды и системы органов: ресурс сердца {metrics['aha_le8_score']} из 100 баллов. Темп старения организма: {pace_curr} г. износа за год (при коррекции замедлится до {pace_pot} г./год). Риск сосудистых осложнений за 10 лет: сейчас {metrics['cvd_10yr_risk_percent']}% -> потенциал {metrics['cvd_10yr_risk_potential_percent']}%; за 30 лет: {cvd_30_curr}% -> потенциал {cvd_30_pot}%. Стадия CKM: {metrics.get('ckm_label', '')}. Профиль 4 систем организма: {systems_summary_str}. {worst_system_hint} Защита от принимаемых лекарств: +{med_saved} лет. {savings_prompt_instruction}
 5. ДАННЫЕ ИЗ ПРИКРЕПЛЕННОГО ФАЙЛА АНАЛИЗОВ: {lab_prompt_block}
 6. ДОПОЛНИТЕЛЬНЫЕ ТЕКСТОВЫЕ СВЕДЕНИЯ: {custom_context_prompt}
 7. Детализация вклада факторов в годах:
 {facts_simple}
 
 СТРУКТУРА ОТВЕТА (четко по абзацам, без приветствий):
-- Абзац 1 (Общий ресурс, возраст организма и сравнение со статистикой): объясни текущий прогноз ({metrics['predicted_expectancy']} лет, осталось около {rem_curr} лет, возраст по состоянию организма {metrics['biological_age']} лет, оценка сердца {metrics['aha_le8_score']} из 100) и покажи, как выполнение рекомендаций увеличит запас до {rem_pot} лет (+{gain_years} лет) и снизит 10-летний сосудистый риск с {metrics['cvd_10yr_risk_percent']}% до {metrics['cvd_10yr_risk_potential_percent']}%. {savings_prompt_instruction}
-- Абзац 2 (Комплексный разбор привычек, диагнозов и дополнительных сведений): разбери факторы риска и положительные привычки ({positive_summary_str}), логично связывая между собой привычки из анкеты и дополнительные сведения из текста (если они указаны).
+- Абзац 1 (Общий ресурс, возраст организма и сравнение со статистикой): объясни текущий прогноз ({metrics['predicted_expectancy']} лет, осталось около {rem_curr} лет, возраст по состоянию организма {metrics['biological_age']} лет, оценка сердца {metrics['aha_le8_score']} из 100) и покажи, как выполнение рекомендаций увеличит запас до {rem_pot} лет (+{gain_years} лет), замедлит темп старения с {pace_curr} до {pace_pot} г./год и снизит риски сосудистых осложнений (на 10 лет: с {metrics['cvd_10yr_risk_percent']}% до {metrics['cvd_10yr_risk_potential_percent']}%, на 30 лет: с {cvd_30_curr}% до {cvd_30_pot}%). {savings_prompt_instruction}
+- Абзац 2 (Комплексный разбор систем организма, привычек и диагнозов): разбери факторы риска и положительные привычки ({positive_summary_str}), обязательно упомяни наиболее нагруженную систему организма ({worst_system_hint}) и объясни понятные пути её укрепления, связывая привычки из анкеты и дополнительные сведения из текста (если они указаны).
 - Абзац 3 (Разбор анализов — пиши его, если прикреплен файл анализов): понятно распиши результаты загруженных анализов, укажи их точное влияние на прогноз и объясни, как они отразились на биологическом возрасте и сосудах.
 - Абзац 4 (План действий): дай 2–3 конкретных, практичных шага на ближайшие две недели.
 """

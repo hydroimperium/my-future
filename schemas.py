@@ -286,6 +286,10 @@ class UserHabitsInput(BaseModel):
     past_smoking_cigs_per_day: int = Field(0, ge=0, le=60, description="Сколько сигарет в день курил в прошлом")
     years_since_quitting_smoking: int = Field(0, ge=0, le=70, description="Сколько лет назад бросил курить")
     past_heavy_alcohol: Literal["no", "yes_quit_over_3y_ago", "yes_quit_recently", "unknown"] = Field("no")
+    family_longevity: Literal["early_cvd_under_60", "average", "long_lived_85_plus", "centenarians_90_plus"] = Field(
+        "average",
+        description="Наследственность и долгожители в семье: early_cvd_under_60 (ранние инфаркты/инсульты/онко у родителей до 60 лет), average (средняя продолжительность жизни в семье), long_lived_85_plus (родители/бабушки/дедушки жили 85+ лет), centenarians_90_plus (в роду есть долгожители 90+ лет)"
+    )
 
     # === БЛОК 3: ХРОНИЧЕСКИЕ ЗАБОЛЕВАНИЯ ===
     has_hypertension: bool = Field(False)

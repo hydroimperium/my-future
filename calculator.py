@@ -6,6 +6,9 @@ from clinical_scores import (
     estimate_10yr_cvd_risk_score2,
     calculate_heart_health_index,
     calculate_biological_age,
+    calculate_pace_of_aging,
+    estimate_30yr_cvd_risk_prevent,
+    calculate_organ_systems_health,
 )
 from lab_parser import evaluate_lab_report_for_prediction
 
@@ -323,6 +326,13 @@ def calculate_prediction(data: UserHabitsInput, custom_nuance_analysis: dict | N
             "Работа на вредном производстве требует обязательного использования СИЗ и ежегодного профильного медосмотра."
         )
 
+    if data.family_longevity == "early_cvd_under_60":
+        add_raw_factor("family_longevity", -1.5, -0.5)
+    elif data.family_longevity == "long_lived_85_plus":
+        add_raw_factor("family_longevity", 1.4, 1.6)
+    elif data.family_longevity == "centenarians_90_plus":
+        add_raw_factor("family_longevity", 2.2, 2.5)
+
     # --- 6. ХРОНИЧЕСКИЕ ЗАБОЛЕВАНИЯ ИЗ АНКЕТЫ ---
     has_any_chronic = any([
         data.has_hypertension, data.has_diabetes, data.has_cvd_infarction_angina,
@@ -547,6 +557,7 @@ def calculate_prediction(data: UserHabitsInput, custom_nuance_analysis: dict | N
         remaining_years_potential = remaining_years_current
 
     remaining_years_gain = round(remaining_years_potential - remaining_years_current, 1)
+    potential_years_delta = round(potential_expectancy - base_expectancy, 1)
 
     # Точный реальный сдвиг прогноза от анализов и от текстового поля (совпадает с изменением цифр на экране до 0.1 года!)
     effective_lab_impact_curr = round(pred_with_labs - pred_questionnaire_only, 1) if "lab_analysis" in raw_factors_curr else 0.0
@@ -675,6 +686,35 @@ def calculate_prediction(data: UserHabitsInput, custom_nuance_analysis: dict | N
     )
     cvd_10yr_risk_potential = round(min(cvd_10yr_risk, cvd_10yr_risk_potential), 1)
 
+    # 11. ТЕМП СТАРЕНИЯ (DunedinPACE), 30-ЛЕТНИЙ РИСК (AHA PREVENT / CKM) И РЕСУРС 4 СИСТЕМ ОРГАНОВ
+    pace_of_aging_current, pace_of_aging_potential = calculate_pace_of_aging(
+        years_delta=years_delta,
+        potential_years_delta=potential_years_delta,
+        aha_le8_score=aha_le8_score,
+        lab_impact_years=effective_lab_impact_curr,
+        custom_impact_years=effective_custom_impact_curr,
+        stress_level=data.stress_level,
+        sleep_hours=data.sleep_hours,
+        smoking_cigs=data.smoking_cigs_per_day,
+        has_hidden_nicotine=effective_flags["has_hidden_nicotine"],
+        lifestyle_activity=data.lifestyle_activity
+    )
+
+    prevent_30yr = estimate_30yr_cvd_risk_prevent(
+        cvd_10yr_risk_current=cvd_10yr_risk,
+        cvd_10yr_risk_potential=cvd_10yr_risk_potential,
+        age=data.age,
+        bmi=bmi,
+        effective_flags=effective_flags,
+        lab_clusters=lab_clusters,
+        has_hypertension=effective_flags["effective_has_hypertension"],
+        has_diabetes=effective_flags["effective_has_diabetes"],
+        has_atherosclerosis=effective_flags["effective_has_atherosclerosis"],
+        has_established_cvd=has_established_cvd
+    )
+
+    organ_systems = calculate_organ_systems_health(data, bmi, effective_flags, lab_clusters)
+
     confidence_score = 82
     if has_any_chronic:
         confidence_score += 5
@@ -720,6 +760,13 @@ def calculate_prediction(data: UserHabitsInput, custom_nuance_analysis: dict | N
         "annual_waste_rub": annual_waste_rub,
         "ten_year_savings_rub": ten_year_savings_rub,
         "aha_le8_score": aha_le8_score,
+        "pace_of_aging_current": pace_of_aging_current,
+        "pace_of_aging_potential": pace_of_aging_potential,
+        "cvd_30yr_risk_percent": prevent_30yr["cvd_30yr_risk_percent"],
+        "cvd_30yr_risk_potential_percent": prevent_30yr["cvd_30yr_risk_potential_percent"],
+        "ckm_stage": prevent_30yr["ckm_stage"],
+        "ckm_label": prevent_30yr["ckm_label"],
+        "organ_systems": organ_systems,
         "cvd_10yr_risk_percent": cvd_10yr_risk,
         "cvd_10yr_risk_potential_percent": cvd_10yr_risk_potential,
         "medication_saved_years": round(medication_saved_years, 1),

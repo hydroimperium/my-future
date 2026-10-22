@@ -199,6 +199,16 @@
             </div>
 
             <div>
+              <label for="family_longevity" class="block font-semibold text-slate-800 mb-1.5">🧬 Наследственность и долгожители в семье</label>
+              <select id="family_longevity" class="w-full rounded border border-slate-300 px-2.5 py-1.5 bg-white text-xs text-slate-700">
+                <option value="average" selected>Обычная (родственники жили в среднем 70–80 лет)</option>
+                <option value="long_lived_85_plus">Хорошая генетика (родители или бабушки/дедушки жили 85+ лет)</option>
+                <option value="centenarians_90_plus">Род долгожителей (в семье есть те, кто перешагнул 90+ лет)</option>
+                <option value="early_cvd_under_60">Отягощённая (у близких родственников были инфаркты / инсульты до 60 лет)</option>
+              </select>
+            </div>
+
+            <div>
               <h3 class="font-semibold text-slate-800 mb-2">Установленные хронические диагнозы</h3>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2" onchange="toggleMedicationsBlock()">
                 <label class="flex items-center gap-2"><input type="checkbox" id="has_hypertension" class="chronic-cb rounded text-emerald-600" /> Артериальная гипертензия (повышенное давление)</label>
@@ -294,6 +304,7 @@
               <div class="text-[11px] text-slate-500">Возраст сейчас</div>
               <div id="resCurrentAge" class="text-xl font-bold text-slate-800">46 лет</div>
               <div id="resBioAge" class="text-[11px] text-slate-500">По износу: 55 г.</div>
+              <div id="resPaceOfAging" class="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">Темп: 1.00 г./год</div>
             </div>
             <div class="border-x border-slate-200 px-1">
               <div class="text-[11px] text-slate-500">Ваш прогноз</div>
@@ -335,12 +346,12 @@
           <div class="bg-white rounded-xl border border-slate-200 p-3.5">
             <div class="text-xs text-slate-500">Ресурс сердца и сосудов</div>
             <div id="resAha" class="text-lg font-bold text-slate-800 mt-0.5">42 из 100</div>
-            <div class="text-[11px] text-slate-500">Комплексная оценка состояния</div>
+            <div id="resPaceSub" class="text-[11px] text-slate-500">Темп старения: 1.00 &rarr; 0.85 г./год</div>
           </div>
           <div class="bg-white rounded-xl border border-slate-200 p-3.5">
             <div class="text-xs text-slate-500">Риск сосудистых осложнений (10 лет)</div>
             <div id="resScore2" class="text-lg font-bold text-slate-800 mt-0.5">18.4% &rarr; 5.2%</div>
-            <div class="text-[11px] text-slate-500">Сейчас &rarr; при выполнении советов</div>
+            <div id="resPrevent30" class="text-[11px] text-slate-600 font-medium">На 30 лет: --% &rarr; --%</div>
           </div>
           <div id="savingsCard" class="bg-white rounded-xl border border-slate-200 p-3.5">
             <div class="text-xs text-slate-500">Условная экономия (за 10 лет)</div>
@@ -352,6 +363,17 @@
             <div id="resDays" class="text-lg font-bold text-slate-800 mt-0.5">5 037 дн.</div>
             <div class="text-[11px] text-slate-500">При сохранении текущих привычек</div>
           </div>
+        </div>
+
+        <!-- БЛОК ДИАГНОСТИКИ РЕСУРСА ПО СИСТЕМАМ ОРГАНИЗМА -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 pb-2 border-b border-slate-100">
+            <h3 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+              <span>🫀 Запас прочности по системам организма</span>
+            </h3>
+            <span id="resCkmLabel" class="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full"></span>
+          </div>
+          <div id="resOrganSystems" class="space-y-3 mt-3"></div>
         </div>
 
         <!-- ОТДЕЛЬНЫЙ БЛОК РАЗБОРА АНАЛИЗОВ -->
@@ -713,6 +735,7 @@
       document.getElementById("fastfood_times_per_week").value = 5;
       document.getElementById("stress_level").value = "high";
       document.getElementById("hazardous_work").value = "no";
+      document.getElementById("family_longevity").value = "average";
 
       document.querySelectorAll(".chronic-cb").forEach(cb => { cb.checked = false; });
       document.getElementById("has_hypertension").checked = true;
@@ -736,6 +759,7 @@
       document.getElementById("fastfood_times_per_week").value = 0;
       document.getElementById("stress_level").value = "low";
       document.getElementById("hazardous_work").value = "no";
+      document.getElementById("family_longevity").value = "long_lived_85_plus";
 
       document.querySelectorAll(".chronic-cb").forEach(cb => { cb.checked = false; });
       toggleMedicationsBlock();
@@ -767,6 +791,7 @@
         past_smoking_cigs_per_day: parseInt(document.getElementById("past_smoking_cigs_per_day").value || "0", 10),
         years_since_quitting_smoking: parseInt(document.getElementById("years_since_quitting_smoking").value || "0", 10),
         past_heavy_alcohol: document.getElementById("past_heavy_alcohol").value,
+        family_longevity: document.getElementById("family_longevity").value,
 
         has_hypertension: document.getElementById("has_hypertension").checked,
         has_diabetes: document.getElementById("has_diabetes").checked,
@@ -844,6 +869,74 @@
 
       document.getElementById("resAha").textContent = m.aha_le8_score + " из 100";
       document.getElementById("resScore2").innerHTML = `${m.cvd_10yr_risk_percent}% &rarr; <span class="text-emerald-700">${m.cvd_10yr_risk_potential_percent}%</span>`;
+
+      const paceCurr = m.pace_of_aging_current !== undefined ? m.pace_of_aging_current : 1.0;
+      const pacePot = m.pace_of_aging_potential !== undefined ? m.pace_of_aging_potential : 0.85;
+      const paceBadge = document.getElementById("resPaceOfAging");
+      if (paceBadge) {
+        paceBadge.textContent = `Темп: ${paceCurr.toFixed(2)} г./год`;
+        if (paceCurr > 1.05) {
+          paceBadge.className = "inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800";
+        } else if (paceCurr < 0.95) {
+          paceBadge.className = "inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800";
+        } else {
+          paceBadge.className = "inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700";
+        }
+      }
+
+      const paceSubEl = document.getElementById("resPaceSub");
+      if (paceSubEl) {
+        paceSubEl.innerHTML = `Темп старения: ${paceCurr.toFixed(2)} &rarr; <span class="text-emerald-700 font-medium">${pacePot.toFixed(2)} г./год</span>`;
+      }
+
+      const cvd30Curr = m.cvd_30yr_risk_percent !== undefined ? m.cvd_30yr_risk_percent : "--";
+      const cvd30Pot = m.cvd_30yr_risk_potential_percent !== undefined ? m.cvd_30yr_risk_potential_percent : "--";
+      const preventEl = document.getElementById("resPrevent30");
+      if (preventEl) {
+        preventEl.innerHTML = `На 30 лет: ${cvd30Curr}% &rarr; <span class="text-emerald-700">${cvd30Pot}%</span>`;
+      }
+
+      const ckmLabelEl = document.getElementById("resCkmLabel");
+      if (ckmLabelEl) {
+        ckmLabelEl.textContent = m.ckm_label || "";
+      }
+
+      const organContainer = document.getElementById("resOrganSystems");
+      if (organContainer) {
+        organContainer.innerHTML = "";
+        const systems = m.organ_systems || [];
+        systems.forEach(sys => {
+          const item = document.createElement("div");
+          item.className = "bg-slate-50 border border-slate-200 rounded-xl p-3";
+          
+          let colorClass = "bg-red-500";
+          let textColorClass = "text-red-700";
+          if (sys.current_score >= 75) {
+            colorClass = "bg-emerald-500";
+            textColorClass = "text-emerald-700";
+          } else if (sys.current_score >= 50) {
+            colorClass = "bg-amber-500";
+            textColorClass = "text-amber-700";
+          }
+          
+          item.innerHTML = `
+            <div class="flex flex-wrap items-center justify-between gap-1 mb-1.5">
+              <span class="font-semibold text-slate-800 text-xs">${sys.title}</span>
+              <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-white border border-slate-200 ${textColorClass}">${sys.status_label}</span>
+            </div>
+            <div class="flex items-center justify-between text-[11px] text-slate-600 mb-1">
+              <span>Сейчас: <strong class="text-slate-800">${sys.current_score}%</strong></span>
+              <span class="text-emerald-700 font-medium">Потенциал: до ${sys.potential_score}%</span>
+            </div>
+            <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden relative">
+              <div class="bg-emerald-200 h-2 rounded-full absolute top-0 left-0" style="width: ${Math.min(100, sys.potential_score)}%"></div>
+              <div class="${colorClass} h-2 rounded-full relative z-10 transition-all duration-500" style="width: ${Math.min(100, sys.current_score)}%"></div>
+            </div>
+          `;
+          organContainer.appendChild(item);
+        });
+      }
+
       document.getElementById("resDays").textContent = m.remaining_days.toLocaleString("ru-RU") + " дн.";
 
       const savingsCard = document.getElementById("savingsCard");

@@ -69,21 +69,25 @@ def _compute_visual_aging_targets(metrics: dict, user_data: UserHabitsInput, sce
     bio_delta = bio_age_now - float(user_data.age)
     years_delta = float(metrics.get("years_delta", 0.0))
     remaining_gain = float(metrics.get("remaining_years_gain", 0.0))
+    pace_current = float(metrics.get("pace_of_aging_current", 1.0))
+    pace_potential = float(metrics.get("pace_of_aging_potential", 0.85))
+    pace_shift_cur = (pace_current - 1.0) * 8.0
 
-    # Базовый расчёт визуального возраста текущего сценария
+    # Базовый расчёт визуального возраста текущего сценария с калибровкой темпа износа
     if bio_delta > 0 or years_delta < 0:
-        cur_raw = chrono_future_age + max(0.0, bio_delta * 1.15) + max(0.0, -years_delta * 0.4)
+        cur_raw = chrono_future_age + max(0.0, bio_delta * 1.0) + max(0.0, -years_delta * 0.35) + max(0.0, pace_shift_cur)
     elif bio_delta <= 0 and years_delta >= 2.0:
-        cur_raw = chrono_future_age - min(6.0, abs(bio_delta) * 0.8 + 2.0)
+        cur_raw = chrono_future_age - min(6.0, abs(bio_delta) * 0.8 + 2.0) + pace_shift_cur * 0.5
     else:
-        cur_raw = chrono_future_age + bio_delta * 0.5
+        cur_raw = chrono_future_age + bio_delta * 0.5 + pace_shift_cur
     current_target_age = max(user_data.age + 11, min(92, int(round(cur_raw))))
 
     if scenario == "current":
         visual_target_age = current_target_age
     else:
         # scenario == "potential"
-        raw_pot_age = chrono_future_age - min(8.0, max(4.0, remaining_gain * 0.6 + 4.0))
+        pace_bonus_pot = max(0.0, (1.0 - pace_potential) * 6.0)
+        raw_pot_age = chrono_future_age - min(8.0, max(4.0, remaining_gain * 0.5 + pace_bonus_pot + 2.0))
         pot_age = int(round(raw_pot_age))
         # Сценарий potential всегда минимум на 6 лет моложе current, но не моложе age + 10
         visual_target_age = min(pot_age, current_target_age - 6)
@@ -204,6 +208,17 @@ def _extract_comprehensive_health_context(metrics: dict, user_data: UserHabitsIn
     bio_age = metrics.get('biological_age', user_data.age)
     lines.append(f"- Biological age now: {bio_age:.1f} (delta: {bio_age - user_data.age:+.1f} years)")
     lines.append(f"- Cardiovascular Health (AHA LE8): {metrics.get('aha_le8_score', 50)}/100, 10-Year CVD Risk: {metrics.get('cvd_10yr_risk_percent', 5.0):.1f}%")
+    pace_c = float(metrics.get("pace_of_aging_current", 1.0))
+    pace_p = float(metrics.get("pace_of_aging_potential", 0.85))
+    cvd_30_c = float(metrics.get("cvd_30yr_risk_percent", 10.0))
+    cvd_30_p = float(metrics.get("cvd_30yr_risk_potential_percent", 5.0))
+    ckm_lbl = metrics.get("ckm_label", "Stage 0")
+    lines.append(f"- Pace of Aging (DunedinPACE): {pace_c:.2f} biological yr/cal yr (potential: {pace_p:.2f} yr/yr)")
+    lines.append(f"- 30-Year CVD Risk & CKM Syndrome: {cvd_30_c:.1f}% -> {cvd_30_p:.1f}%, CKM: {ckm_lbl}")
+    organ_sys = metrics.get("organ_systems", [])
+    if organ_sys:
+        sys_str = ", ".join([f"{s.get('title', s.get('id'))}: {s.get('current_score')}% (pot: {s.get('potential_score')}%)" for s in organ_sys])
+        lines.append(f"- 4 Organ Systems Health Resource: {sys_str}")
 
     # 2. Привычки и образ жизни
     lines.append(f"- Smoking: {user_data.smoking_cigs_per_day} cigs/day (Hidden nicotine/vape: {eff_flags.get('has_hidden_nicotine', False)})")
@@ -417,6 +432,12 @@ def _build_deterministic_aging_description(
 
     if abnormalities:
         face_details.append("dull skin undertone and metabolic puffiness linked to unmanaged laboratory imbalances")
+
+    organ_systems = metrics.get("organ_systems", [])
+    systems_map = {s.get("id"): s for s in organ_systems}
+    ren_score = systems_map.get("hepatic_renal", {}).get("current_score", 85)
+    if ren_score < 55:
+        face_details.append("subtle under-eye fluid retention and sallow complexion reflecting sluggish hepatic-renal clearance")
 
     face_desc = ", ".join(face_details) if face_details else "natural age-appropriate deepening of facial expression lines and softened jawline definition"
     block2 = f"2. FACE, SKIN & HAIR: Preserves central eye, nose, and mouth identity. Facial changes include {face_desc}."

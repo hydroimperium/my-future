@@ -306,3 +306,277 @@ def calculate_biological_age(
     min_bio = max(16.0, float(chronological_age - 12.0))
     max_bio = float(chronological_age + 25.0)
     return round(max(min_bio, min(max_bio, bio_age)), 1)
+
+
+def calculate_pace_of_aging(
+    years_delta: float,
+    potential_years_delta: float,
+    aha_le8_score: int,
+    lab_impact_years: float,
+    custom_impact_years: float,
+    stress_level: str,
+    sleep_hours: float,
+    smoking_cigs: int,
+    has_hidden_nicotine: bool,
+    lifestyle_activity: str
+) -> tuple[float, float]:
+    """
+    Клинический аналог эпигенетических часов DunedinPACE (Belsky et al.):
+    показывает, сколько биологических лет организм изнашивается за 1 календарный год.
+    """
+    pace = 1.00
+    pace += (-years_delta * 0.022)
+    pace += (72.0 - aha_le8_score) * 0.0025
+    pace += -(lab_impact_years * 0.018) - (custom_impact_years * 0.012)
+
+    if smoking_cigs >= 15:
+        pace += 0.10
+    elif smoking_cigs > 0 or has_hidden_nicotine:
+        pace += 0.06
+
+    if stress_level == "high":
+        pace += 0.04
+    elif stress_level == "low":
+        pace -= 0.02
+
+    if sleep_hours < 6.0:
+        pace += 0.04
+
+    if lifestyle_activity == "active_gym":
+        pace -= 0.05
+    elif lifestyle_activity == "moderate":
+        pace -= 0.03
+    elif lifestyle_activity == "sedentary":
+        pace += 0.04
+
+    pace_current = round(max(0.72, min(1.65, pace)), 2)
+
+    raw_pot_pace = 1.00 - (potential_years_delta * 0.020) - 0.06
+    pace_potential = round(max(0.72, min(pace_current, min(1.12, raw_pot_pace))), 2)
+
+    return pace_current, pace_potential
+
+
+def estimate_30yr_cvd_risk_prevent(
+    cvd_10yr_risk_current: float,
+    cvd_10yr_risk_potential: float,
+    age: int,
+    bmi: float,
+    effective_flags: dict,
+    lab_clusters: dict,
+    has_hypertension: bool,
+    has_diabetes: bool,
+    has_atherosclerosis: bool,
+    has_established_cvd: bool
+) -> dict:
+    """
+    Оценка 30-летнего риска сердечно-сосудистых событий по концепции AHA PREVENT
+    и Cardiovascular-Kidney-Metabolic (CKM) Syndrome (стадии 0–4).
+    """
+    glyc_y = float(lab_clusters.get("glycemic", {}).get("impact_years", 0.0))
+    lip_y = float(lab_clusters.get("lipids", {}).get("impact_years", 0.0))
+    ren_y = float(lab_clusters.get("renal_hepatic", {}).get("impact_years", 0.0))
+
+    if (
+        has_established_cvd
+        or effective_flags.get("effective_has_cvd")
+        or effective_flags.get("effective_has_stroke")
+        or effective_flags.get("effective_has_thrombosis")
+    ):
+        ckm_stage = 4
+        ckm_label = "Стадия 4 (высокий клинический сосудистый риск)"
+    elif (
+        has_atherosclerosis
+        or effective_flags.get("effective_has_atherosclerosis")
+        or ren_y <= -2.0
+    ):
+        ckm_stage = 3
+        ckm_label = "Стадия 3 (субклиническая сосудисто-почечная нагрузка)"
+    elif (
+        has_diabetes
+        or effective_flags.get("effective_has_diabetes")
+        or has_hypertension
+        or effective_flags.get("effective_has_hypertension")
+        or bmi >= 30.0
+        or glyc_y <= -0.8
+        or lip_y <= -0.8
+        or ren_y <= -0.8
+    ):
+        ckm_stage = 2
+        ckm_label = "Стадия 2 (метаболическая / гипертензивная нагрузка)"
+    elif bmi >= 25.0 or effective_flags.get("has_hidden_poor_diet"):
+        ckm_stage = 1
+        ckm_label = "Стадия 1 (начальная метаболическая нагрузка)"
+    else:
+        ckm_stage = 0
+        ckm_label = "Стадия 0 (оптимальный кардио-метаболический баланс)"
+
+    ckm_synergy_mult = 1.0 + (ckm_stage * 0.07)
+    horizon_scale = 1.0 if age <= 55 else max(0.45, (90.0 - age) / 35.0)
+
+    def _calc_30y(r10: float, mult: float) -> float:
+        p1 = min(0.85, (r10 / 100.0))
+        p2 = min(0.88, p1 * 1.62 * mult * horizon_scale)
+        p3 = min(0.92, p1 * 2.35 * mult * horizon_scale)
+        cum_prob = 1.0 - ((1.0 - p1) * (1.0 - p2) * (1.0 - p3))
+        return round(max(r10 + 1.2, min(88.0, cum_prob * 100.0)), 1)
+
+    risk_30_curr = _calc_30y(cvd_10yr_risk_current, ckm_synergy_mult)
+    risk_30_pot = min(risk_30_curr, _calc_30y(cvd_10yr_risk_potential, max(1.0, ckm_synergy_mult - 0.10)))
+
+    return {
+        "cvd_30yr_risk_percent": risk_30_curr,
+        "cvd_30yr_risk_potential_percent": round(risk_30_pot, 1),
+        "ckm_stage": ckm_stage,
+        "ckm_label": ckm_label
+    }
+
+
+def calculate_organ_systems_health(
+    data: UserHabitsInput,
+    bmi: float,
+    effective_flags: dict,
+    lab_clusters: dict
+) -> list[dict]:
+    """
+    Оценивает сохранность ресурса (от 10 до 99 баллов из 100 сейчас и в потенциале)
+    по 4 ключевым системам организма.
+    """
+    def _status_label(score: int) -> str:
+        if score >= 80:
+            return "Отличный резерв"
+        elif score >= 60:
+            return "Умеренная нагрузка"
+        elif score >= 40:
+            return "Повышенный износ"
+        else:
+            return "Зона риска"
+
+    # 1. Сердце и сосуды
+    curr_cv = 94
+    pot_cv = 95
+    if data.smoking_cigs_per_day > 0:
+        curr_cv -= min(28, 12 + data.smoking_cigs_per_day)
+    elif effective_flags.get("has_hidden_nicotine"):
+        curr_cv -= 16
+
+    if effective_flags.get("effective_has_hypertension"):
+        curr_cv -= 14 if data.meds_antihypertensive else 28
+        pot_cv -= 10
+
+    if effective_flags.get("effective_has_atherosclerosis"):
+        curr_cv -= 12 if data.meds_statins_lipid else 24
+        pot_cv -= 10
+    curr_cv += int(float(lab_clusters.get("lipids", {}).get("impact_years", 0.0)) * 5.0)
+
+    if (
+        effective_flags.get("effective_has_cvd")
+        or effective_flags.get("effective_has_stroke")
+        or effective_flags.get("effective_has_thrombosis")
+    ):
+        curr_cv -= 28
+        pot_cv -= 18
+
+    if data.lifestyle_activity == "sedentary":
+        curr_cv -= 10
+    elif data.lifestyle_activity == "active_gym":
+        curr_cv += 5
+
+    # 2. Метаболизм и эндокринный баланс
+    curr_met = 94
+    pot_met = 95
+    if bmi >= 35.0:
+        curr_met -= 32
+        pot_met -= 8
+    elif bmi >= 30.0:
+        curr_met -= 22
+        pot_met -= 5
+    elif bmi >= 25.0:
+        curr_met -= 10
+    elif bmi < 18.5:
+        curr_met -= 14
+
+    curr_met -= min(22, data.fastfood_times_per_week * 3)
+    if effective_flags.get("has_hidden_poor_diet"):
+        curr_met -= 12
+
+    if effective_flags.get("effective_has_diabetes"):
+        curr_met -= 18 if data.meds_antidiabetic else 34
+        pot_met -= 14
+
+    curr_met += int(float(lab_clusters.get("glycemic", {}).get("impact_years", 0.0)) * 5.5)
+
+    # 3. Печень и почки (детокс и фильтрация)
+    curr_hr = 95
+    pot_hr = 95
+    if data.alcohol_drinks_per_week > 2:
+        curr_hr -= int(min(32.0, (data.alcohol_drinks_per_week - 2) * 2.2))
+    if effective_flags.get("has_hidden_alcohol"):
+        curr_hr -= 14
+    if data.past_heavy_alcohol in ("yes_quit_recently", "yes_quit_over_3y_ago"):
+        curr_hr -= 8
+        pot_hr -= 5
+
+    if data.hazardous_work == "moderate":
+        curr_hr -= 12
+        pot_hr -= 5
+    elif data.hazardous_work == "high":
+        curr_hr -= 25
+        pot_hr -= 12
+
+    if data.meds_daily_nsaids or data.meds_glucocorticoids:
+        curr_hr -= 15
+        pot_hr -= 6
+
+    ren_imp = float(lab_clusters.get("renal_hepatic", {}).get("impact_years", 0.0))
+    curr_hr += int(ren_imp * 6.0)
+    pot_hr += int(ren_imp * 2.5)
+
+    if data.has_urinary_infection:
+        curr_hr -= 9
+        pot_hr -= 3
+
+    # 4. Нервная система, иммунитет и восстановление
+    curr_ni = 94
+    pot_ni = 95
+    if data.sleep_hours < 6.0:
+        curr_ni -= 24
+    elif data.sleep_hours < 7.0:
+        curr_ni -= 12
+    elif data.sleep_hours > 9.5:
+        curr_ni -= 10
+
+    if data.stress_level == "high":
+        curr_ni -= 22
+        pot_ni -= 4
+    elif data.stress_level == "medium":
+        curr_ni -= 9
+
+    inf_imp = float(lab_clusters.get("inflammation", {}).get("impact_years", 0.0))
+    hem_imp = float(lab_clusters.get("hematology_endocrine", {}).get("impact_years", 0.0))
+    curr_ni += int((inf_imp + hem_imp) * 5.5)
+
+    if data.has_rheumatoid_arthritis or data.has_ibd_polyps:
+        curr_ni -= 16
+        pot_ni -= 10
+    if effective_flags.get("effective_has_oncology") or data.has_oncology:
+        curr_ni -= 28
+        pot_ni -= 20
+
+    def _pack_sys(sys_id: str, title: str, c: int, p: int) -> dict:
+        c_clamped = int(max(12, min(98, c)))
+        p_clamped = int(max(c_clamped, max(45, min(99, p))))
+        return {
+            "id": sys_id,
+            "title": title,
+            "current_score": c_clamped,
+            "potential_score": p_clamped,
+            "status_label": _status_label(c_clamped)
+        }
+
+    return [
+        _pack_sys("cardiovascular", "🫀 Сердце и сосуды", curr_cv, pot_cv),
+        _pack_sys("metabolic", "🔥 Метаболизм и эндокринный баланс", curr_met, pot_met),
+        _pack_sys("hepatic_renal", "🧪 Печень и почки (детокс и фильтрация)", curr_hr, pot_hr),
+        _pack_sys("neuro_immune", "🧠 Нервная система, иммунитет и восстановление", curr_ni, pot_ni),
+    ]
