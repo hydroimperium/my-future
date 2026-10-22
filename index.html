@@ -393,6 +393,34 @@
             </span>
           </div>
 
+          <!-- Переключатель сценария: Текущий тренд vs Здоровый потенциал -->
+          <div class="bg-slate-100 p-1 rounded-xl flex gap-1 text-xs">
+            <button
+              type="button"
+              id="scenarioBtnCurrent"
+              onclick="selectPortraitScenario('current')"
+              class="flex-1 py-2 px-3 rounded-lg font-medium transition text-center shadow-xs bg-white text-purple-900 border border-purple-200 flex items-center justify-center gap-1.5"
+            >
+              <span>📉</span>
+              <div class="text-left leading-tight">
+                <div class="font-bold">Текущий тренд</div>
+                <div class="text-[10px] text-slate-500">При сохранении текущего образа жизни</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              id="scenarioBtnPotential"
+              onclick="selectPortraitScenario('potential')"
+              class="flex-1 py-2 px-3 rounded-lg font-medium transition text-center text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5"
+            >
+              <span>🌿</span>
+              <div class="text-left leading-tight">
+                <div class="font-bold">Здоровый потенциал</div>
+                <div class="text-[10px] text-slate-500">При выполнении рекомендаций</div>
+              </div>
+            </button>
+          </div>
+
           <!-- Состояние 1: Выбор и загрузка фото -->
           <div id="portraitUploadState" class="space-y-3">
             <div
@@ -404,6 +432,7 @@
                 type="file"
                 id="portraitFileInput"
                 accept="image/jpeg,image/png,image/webp"
+                onclick="this.value = null"
                 onchange="handlePortraitFileSelect(event)"
                 class="hidden"
               />
@@ -435,8 +464,8 @@
             <div class="bg-slate-50 rounded-lg p-2.5 text-[11px] text-slate-600 border border-slate-200/70 space-y-1">
               <div class="font-semibold text-slate-700">💡 Как строится портрет из будущего:</div>
               <ul class="list-disc pl-4 space-y-0.5 text-slate-500">
-                <li>Черты вашего лица, узнаваемость и композиция строго сохраняются.</li>
-                <li>Нейросеть проецирует старение на 20 лет вперёд с учётом рассчитанного износа (курение, алкоголь, стресс, вес, сон и сосудистый риск).</li>
+                <li>Черты вашего лица, форма черепа, разрез глаз и узнаваемость строго сохраняются.</li>
+                <li>Нейросеть трансформирует всё видимое тело на 20 лет вперёд: лицо, шею, кисти рук, комплекцию и посадку одежды по выбранному сценарию.</li>
                 <li>После генерации откроется интерактивная шторка-слайдер для наглядного сравнения «До» и «После».</li>
               </ul>
             </div>
@@ -448,7 +477,7 @@
               disabled
               class="w-full bg-purple-700 hover:bg-purple-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl shadow-xs transition text-xs flex items-center justify-center gap-2"
             >
-              <span>✨ Сгенерировать фото через 20 лет</span>
+              <span>✨ Сгенерировать фото через 20 лет (текущий тренд)</span>
             </button>
           </div>
 
@@ -456,8 +485,8 @@
           <div id="portraitLoadingState" class="hidden py-8 px-4 text-center space-y-3 bg-purple-50/40 rounded-xl border border-purple-100">
             <div class="inline-block animate-spin rounded-full h-9 w-9 border-2 border-purple-600 border-t-transparent"></div>
             <div>
-              <div class="text-xs font-bold text-purple-950">Генерируем ваш портрет из будущего...</div>
-              <p class="text-[11px] text-purple-700 mt-1 max-w-sm mx-auto">
+              <div id="portraitLoadingTitle" class="text-xs font-bold text-purple-950">Генерируем ваш портрет из будущего...</div>
+              <p id="portraitLoadingDesc" class="text-[11px] text-purple-700 mt-1 max-w-sm mx-auto">
                 Нейросеть сохраняет ваши черты лица и накладывает персональный профиль возрастных изменений на основе прогноза на 20 лет вперёд.
               </p>
             </div>
@@ -521,8 +550,11 @@
               <div class="absolute top-3 left-3 bg-black/65 backdrop-blur-xs text-white text-[11px] font-medium px-2.5 py-1 rounded-full pointer-events-none shadow-xs">
                 📍 Вы сейчас
               </div>
-              <div class="absolute top-3 right-3 bg-purple-900/80 backdrop-blur-xs text-white text-[11px] font-medium px-2.5 py-1 rounded-full pointer-events-none shadow-xs">
-                🔮 Через 20 лет
+              <div
+                id="sliderBadgeAfter"
+                class="absolute top-3 right-3 bg-purple-950/85 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-full pointer-events-none shadow-xs border border-purple-500/30"
+              >
+                🔮 Через 20 лет (текущий тренд)
               </div>
 
               <!-- Подсказка внизу слайдера -->
@@ -534,33 +566,46 @@
             </div>
 
             <!-- Дополнительная информация и кнопки под слайдером -->
-            <div class="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
+            <div class="space-y-2 pt-1">
+              <!-- Быстрое переключение сценария и генерация альтернативы -->
               <button
                 type="button"
-                onclick="resetPortraitView()"
-                class="text-slate-600 hover:text-slate-900 font-medium py-1 px-2.5 rounded-lg border border-slate-300 hover:bg-slate-100 transition"
+                id="quickSwitchScenarioBtn"
+                onclick="toggleAndRegenerateScenario()"
+                class="w-full py-2.5 px-3 rounded-xl font-semibold text-xs transition flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-xs"
               >
-                🔄 Загрузить другое фото
+                <span id="quickSwitchIcon">🌿</span>
+                <span id="quickSwitchBtnText">Сгенерировать «Здоровый потенциал» для сравнения</span>
               </button>
-              <div class="flex gap-2">
-                <a
-                  id="downloadOriginalBtn"
-                  href="#"
-                  target="_blank"
-                  download="photo_now.jpg"
-                  class="text-slate-600 hover:text-slate-900 font-medium py-1 px-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition text-[11px]"
+
+              <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <button
+                  type="button"
+                  onclick="resetPortraitView(true)"
+                  class="text-slate-600 hover:text-slate-900 font-medium py-1.5 px-3 rounded-lg border border-slate-300 hover:bg-slate-100 transition flex items-center gap-1.5"
                 >
-                  Оригинал
-                </a>
-                <a
-                  id="downloadFutureBtn"
-                  href="#"
-                  target="_blank"
-                  download="future_portrait_20y.png"
-                  class="bg-purple-700 hover:bg-purple-800 text-white font-medium py-1 px-3 rounded-lg transition text-[11px] shadow-xs"
-                >
-                  ⬇️ Скачать портрет
-                </a>
+                  <span>🔄</span> Загрузить другое фото
+                </button>
+                <div class="flex gap-2">
+                  <a
+                    id="downloadOriginalBtn"
+                    href="#"
+                    target="_blank"
+                    download="photo_now.jpg"
+                    class="text-slate-600 hover:text-slate-900 font-medium py-1.5 px-3 rounded-lg border border-slate-200 hover:bg-slate-50 transition text-[11px]"
+                  >
+                    Оригинал
+                  </a>
+                  <a
+                    id="downloadFutureBtn"
+                    href="#"
+                    target="_blank"
+                    download="future_portrait_20y.jpg"
+                    class="bg-purple-700 hover:bg-purple-800 text-white font-medium py-1.5 px-3 rounded-lg transition text-[11px] shadow-xs"
+                  >
+                    ⬇️ Скачать портрет
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -582,6 +627,7 @@
     let currentLabReportData = null;
     let currentPredictionId = null;
     let selectedPortraitFile = null;
+    let selectedPortraitScenario = 'current';
 
     async function handleLabFileUpload(event) {
       const fileInput = event.target;
@@ -884,6 +930,73 @@
     // ЛОГИКА БЛОКА «ПОРТРЕТ ИЗ БУДУЩЕГО» И ШТОРКИ-СЛАЙДЕРА
     // =========================================================================
 
+    function selectPortraitScenario(scenario) {
+      selectedPortraitScenario = scenario;
+      const btnCurrent = document.getElementById("scenarioBtnCurrent");
+      const btnPotential = document.getElementById("scenarioBtnPotential");
+      const genBtn = document.getElementById("generatePortraitBtn");
+
+      if (scenario === 'current') {
+        if (btnCurrent) {
+          btnCurrent.className = "flex-1 py-2 px-3 rounded-lg font-medium transition text-center shadow-xs bg-white text-purple-900 border border-purple-200 flex items-center justify-center gap-1.5";
+        }
+        if (btnPotential) {
+          btnPotential.className = "flex-1 py-2 px-3 rounded-lg font-medium transition text-center text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5";
+        }
+        if (genBtn) {
+          genBtn.className = "w-full bg-purple-700 hover:bg-purple-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl shadow-xs transition text-xs flex items-center justify-center gap-2";
+          genBtn.innerHTML = "<span>✨ Сгенерировать фото через 20 лет (текущий тренд)</span>";
+        }
+      } else {
+        if (btnCurrent) {
+          btnCurrent.className = "flex-1 py-2 px-3 rounded-lg font-medium transition text-center text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5";
+        }
+        if (btnPotential) {
+          btnPotential.className = "flex-1 py-2 px-3 rounded-lg font-medium transition text-center shadow-xs bg-white text-emerald-900 border border-emerald-300 flex items-center justify-center gap-1.5";
+        }
+        if (genBtn) {
+          genBtn.className = "w-full bg-emerald-700 hover:bg-emerald-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl shadow-xs transition text-xs flex items-center justify-center gap-2";
+          genBtn.innerHTML = "<span>🌿 Сгенерировать фото через 20 лет (здоровый потенциал)</span>";
+        }
+      }
+      updateQuickSwitchButton();
+    }
+
+    function updateSliderBadge() {
+      const badge = document.getElementById("sliderBadgeAfter");
+      if (!badge) return;
+      if (selectedPortraitScenario === 'current') {
+        badge.className = "absolute top-3 right-3 bg-purple-950/85 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-full pointer-events-none shadow-xs border border-purple-500/30";
+        badge.textContent = "🔮 Через 20 лет (текущий тренд)";
+      } else {
+        badge.className = "absolute top-3 right-3 bg-emerald-950/85 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-full pointer-events-none shadow-xs border border-emerald-500/30";
+        badge.textContent = "🌿 Через 20 лет (ваш потенциал)";
+      }
+    }
+
+    function updateQuickSwitchButton() {
+      const switchBtn = document.getElementById("quickSwitchScenarioBtn");
+      const switchIcon = document.getElementById("quickSwitchIcon");
+      const switchText = document.getElementById("quickSwitchBtnText");
+      if (!switchBtn || !switchIcon || !switchText) return;
+
+      if (selectedPortraitScenario === 'current') {
+        switchBtn.className = "w-full py-2.5 px-3 rounded-xl font-semibold text-xs transition flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-xs";
+        switchIcon.textContent = "🌿";
+        switchText.textContent = "Сгенерировать «Здоровый потенциал» для сравнения";
+      } else {
+        switchBtn.className = "w-full py-2.5 px-3 rounded-xl font-semibold text-xs transition flex items-center justify-center gap-2 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-300 shadow-xs";
+        switchIcon.textContent = "📉";
+        switchText.textContent = "Сгенерировать «Текущий тренд» для сравнения";
+      }
+    }
+
+    async function toggleAndRegenerateScenario() {
+      const nextScenario = (selectedPortraitScenario === 'current') ? 'potential' : 'current';
+      selectPortraitScenario(nextScenario);
+      await startPortraitGeneration();
+    }
+
     function handlePortraitFileSelect(event) {
       const file = event.target.files && event.target.files[0];
       if (file) {
@@ -917,7 +1030,8 @@
 
     function clearPortraitFile() {
       selectedPortraitFile = null;
-      document.getElementById("portraitFileInput").value = "";
+      const fileInput = document.getElementById("portraitFileInput");
+      if (fileInput) fileInput.value = "";
       document.getElementById("portraitFilePreview").classList.add("hidden");
       document.getElementById("generatePortraitBtn").disabled = true;
     }
@@ -938,11 +1052,25 @@
       document.getElementById("portraitResultState").classList.add("hidden");
       document.getElementById("portraitLoadingState").classList.remove("hidden");
 
+      const loadingTitle = document.getElementById("portraitLoadingTitle");
+      const loadingDesc = document.getElementById("portraitLoadingDesc");
+      if (loadingTitle) {
+        loadingTitle.textContent = (selectedPortraitScenario === 'potential')
+          ? "Генерируем ваш «Здоровый потенциал» через 20 лет..."
+          : "Генерируем ваш портрет «Текущий тренд» через 20 лет...";
+      }
+      if (loadingDesc) {
+        loadingDesc.textContent = (selectedPortraitScenario === 'potential')
+          ? "Нейросеть моделирует замедленное физиологическое старение, подтянутую комплекцию и улучшенный тонус при выполнении рекомендаций."
+          : "Нейросеть проецирует накопленный износ, влияние привычек, метаболических факторов и снижения тонуса.";
+      }
+
       const formData = new FormData();
       formData.append("file", selectedPortraitFile);
 
       try {
-        const res = await fetch(`/api/generate-portrait/${currentPredictionId}`, {
+        const timestamp = Date.now();
+        const res = await fetch(`/api/generate-portrait/${currentPredictionId}?scenario=${selectedPortraitScenario}`, {
           method: "POST",
           body: formData
         });
@@ -958,15 +1086,26 @@
 
         const data = await res.json();
 
+        // Добавляем timestamp для защиты от браузерного кэширования
+        const origUrl = data.original_url + (data.original_url.includes("?") ? "&" : "?") + `t=${timestamp}`;
+        const futureUrl = data.future_url + (data.future_url.includes("?") ? "&" : "?") + `t=${timestamp}`;
+
         // Заполняем изображения для шторки-слайдера
-        document.getElementById("imgBefore").src = data.original_url;
-        document.getElementById("imgAfter").src = data.future_url;
+        document.getElementById("imgBefore").src = origUrl;
+        document.getElementById("imgAfter").src = futureUrl;
+
+        // Обновляем бейджи и кнопку быстрого сравнения
+        updateSliderBadge();
+        updateQuickSwitchButton();
 
         // Настраиваем ссылки на скачивание
         const dlOrig = document.getElementById("downloadOriginalBtn");
-        if (dlOrig) dlOrig.href = data.original_url;
+        if (dlOrig) dlOrig.href = origUrl;
         const dlFuture = document.getElementById("downloadFutureBtn");
-        if (dlFuture) dlFuture.href = data.future_url;
+        if (dlFuture) {
+          dlFuture.href = futureUrl;
+          dlFuture.download = `future_portrait_20y_${selectedPortraitScenario}.jpg`;
+        }
 
         // Возвращаем ползунок слайдера в центр (50%)
         document.getElementById("imgBefore").style.clipPath = "inset(0 50% 0 0)";
@@ -989,11 +1128,16 @@
       document.getElementById("portraitUploadState").classList.remove("hidden");
     }
 
-    function resetPortraitView() {
+    function resetPortraitView(clearFile = false) {
       document.getElementById("portraitResultState").classList.add("hidden");
       document.getElementById("portraitErrorState").classList.add("hidden");
       document.getElementById("portraitLoadingState").classList.add("hidden");
       document.getElementById("portraitUploadState").classList.remove("hidden");
+      const fileInput = document.getElementById("portraitFileInput");
+      if (fileInput) fileInput.value = "";
+      if (clearFile) {
+        clearPortraitFile();
+      }
     }
 
     function initComparisonSlider() {

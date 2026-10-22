@@ -1,10 +1,18 @@
+import json
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from schemas import UserHabitsInput, COUNTRY_PROFILES, RU_REGION_PROFILES
 from calculator import calculate_prediction
-from database import init_db, save_prediction, get_recent_predictions, get_portrait_prompt
+from database import (
+    init_db,
+    save_prediction,
+    get_recent_predictions,
+    get_portrait_prompt,
+    get_prediction_by_id,
+    update_portrait_prompt
+)
 from knowledge_base import retrieve_relevant_facts
 from ai_service import analyze_custom_nuance_with_search, generate_future_explanation
 from lab_parser import extract_text_from_file
@@ -94,11 +102,8 @@ def create_prediction(user_data: UserHabitsInput):
     # 4. Генерация структурированного текста прогноза
     ai_explanation = generate_future_explanation(user_data, metrics, who_facts)
 
-    # 5. Генерация промпта для портрета из будущего (сохраняется в БД для последующей генерации фото)
-    portrait_prompt = build_full_portrait_prompt(metrics, user_data)
-
-    # 6. Сохранение в базу данных SQLite (включая portrait_prompt)
-    record_id = save_prediction(user_data, metrics, ai_explanation, portrait_prompt=portrait_prompt)
+    # 5. Сохранение в базу данных SQLite (промпт для портрета генерируется On-Demand при обращении)
+    record_id = save_prediction(user_data, metrics, ai_explanation, portrait_prompt="")
 
     return {
         "id": record_id,
@@ -109,21 +114,50 @@ def create_prediction(user_data: UserHabitsInput):
 
 
 @app.post("/api/generate-portrait/{prediction_id}")
-async def generate_portrait(prediction_id: int, file: UploadFile = File(...)):
+async def generate_portrait(
+    prediction_id: int,
+    scenario: str = "current",
+    file: UploadFile = File(...)
+):
     """
-    Генерирует «портрет из будущего»:
-    принимает фото пользователя, загружает сохранённый промпт из БД,
-    вызывает Image Generation API и возвращает оба изображения.
+    Генерирует «портрет из будущего» On-Demand:
+    - Принимает сценарий: "current" (текущий износ) или "potential" (здоровый потенциал).
+    - Загружает расчёт из БД по prediction_id.
+    - Кэширует сгенерированные промпты обоих сценариев в БД.
+    - Принимает фото пользователя, вызывает Image Generation API и сохраняет сгенерированный портрет.
     """
-    # 1. Проверяем наличие промпта для этого расчёта
-    portrait_prompt = get_portrait_prompt(prediction_id)
-    if not portrait_prompt:
+    if scenario not in ("current", "potential"):
+        scenario = "current"
+
+    # 1. Загружаем запись расчёта из БД
+    record = get_prediction_by_id(prediction_id)
+    if not record:
         raise HTTPException(
             status_code=404,
-            detail="Прогноз не найден или промпт портрета не был сгенерирован. Сначала выполните расчёт прогноза."
+            detail="Прогноз не найден. Сначала выполните расчёт прогноза на главной странице."
         )
 
-    # 2. Валидация загруженного файла
+    # 2. On-Demand генерация или загрузка промпта для выбранного сценария
+    prompt_cache = {}
+    raw_prompt = record.get("portrait_prompt") or ""
+    if raw_prompt.strip().startswith("{"):
+        try:
+            prompt_cache = json.loads(raw_prompt)
+        except Exception:
+            prompt_cache = {}
+    elif raw_prompt.strip():
+        # Совместимость со старым форматом (одиночный промпт)
+        prompt_cache = {"current": raw_prompt.strip()}
+
+    portrait_prompt = prompt_cache.get(scenario)
+    if not portrait_prompt:
+        user_data = UserHabitsInput(**record["raw_input"])
+        metrics = record["full_result"]
+        portrait_prompt = build_full_portrait_prompt(metrics, user_data, scenario=scenario)
+        prompt_cache[scenario] = portrait_prompt
+        update_portrait_prompt(prediction_id, json.dumps(prompt_cache, ensure_ascii=False))
+
+    # 3. Валидация загруженного файла
     filename = file.filename or "photo.jpg"
     ext = filename.lower().rsplit(".", 1)[-1] if "." in filename else ""
     if ext not in ("jpg", "jpeg", "png", "webp"):
@@ -142,11 +176,11 @@ async def generate_portrait(prediction_id: int, file: UploadFile = File(...)):
     mime_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
     mime_type = mime_map.get(ext, "image/jpeg")
 
-    # 3. Сохраняем оригинальное фото
+    # 4. Сохраняем оригинальное фото
     original_path = PORTRAITS_DIR / f"{prediction_id}_original.{ext}"
     original_path.write_bytes(file_bytes)
 
-    # 4. Вызываем генерацию портрета
+    # 5. Вызываем генерацию портрета
     try:
         generated_bytes = generate_portrait_image(file_bytes, mime_type, portrait_prompt)
     except Exception as e:
@@ -161,15 +195,16 @@ async def generate_portrait(prediction_id: int, file: UploadFile = File(...)):
             detail="Не удалось получить изображение от нейросети. Проверьте настройки API-ключа."
         )
 
-    # 5. Сохраняем сгенерированное изображение (определяем формат по байтам)
+    # 6. Сохраняем сгенерированное изображение с учётом сценария
     is_jpeg = generated_bytes.startswith(b"\xff\xd8")
     future_ext = "jpg" if is_jpeg else "png"
-    future_filename = f"{prediction_id}_future.{future_ext}"
+    future_filename = f"{prediction_id}_future_{scenario}.{future_ext}"
     future_path = PORTRAITS_DIR / future_filename
     future_path.write_bytes(generated_bytes)
 
     return {
         "status": "ok",
+        "scenario": scenario,
         "original_url": f"/api/portraits/{prediction_id}_original.{ext}",
         "future_url": f"/api/portraits/{future_filename}"
     }

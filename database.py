@@ -87,6 +87,39 @@ def get_portrait_prompt(prediction_id: int) -> str | None:
         return None
 
 
+def get_prediction_by_id(prediction_id: int) -> dict | None:
+    """
+    Возвращает запись расчёта по ID для On-Demand генерации портрета.
+    Парсит raw_input и full_result из JSON в словари.
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, raw_input, full_result, portrait_prompt FROM predictions WHERE id = ?",
+            (prediction_id,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return {
+            "id": row[0],
+            "raw_input": json.loads(row[1]) if row[1] else {},
+            "full_result": json.loads(row[2]) if row[2] else {},
+            "portrait_prompt": row[3] or ""
+        }
+
+
+def update_portrait_prompt(prediction_id: int, portrait_prompt: str) -> None:
+    """Обновляет или кэширует сгенерированный промпт портрета в БД."""
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE predictions SET portrait_prompt = ? WHERE id = ?",
+            (portrait_prompt, prediction_id)
+        )
+        conn.commit()
+
+
 def get_recent_predictions(limit: int = 10) -> list[dict]:
     """Возвращает последние сохранённые расчёты (для проверки и личного кабинета)."""
     with sqlite3.connect(DB_PATH) as conn:
