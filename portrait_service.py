@@ -4,12 +4,13 @@ portrait_service.py — Модуль «Портрет из будущего (+20
 и вызов Image Generation API для создания фотореалистичного портрета.
 
 Промпт состоит из 2 частей:
-1) Фиксированная — строгое сохранение узнаваемости, костного скелета, кадра
-   и ОБЯЗАТЕЛЬНАЯ трансформация всего видимого тела (комплекция, мышечно-жировой
-   баланс, посадка одежды, кожа рук и шеи).
+1) Фиксированная — строгое сохранение узнаваемости (Immutable Central Identity Triangle),
+   костного скелета, кадра и ОБЯЗАТЕЛЬНАЯ трансформация всего видимого тела
+   (Mutable Body Envelope: комплекция, фигура, посадка одежды, открытая кожа).
 2) Динамическая — генерируется LLM (с детерминированным fallback) в двух сценариях:
-   - "current": текущие привычки, износ организма и прогрессирующие риски;
-   - "potential": переход на здоровый образ жизни, спорт, нормализация веса.
+   - "current": текущие привычки, кумулятивный износ, метаболический профиль;
+   - "potential": активная рекомпозиция тела, витальность, свежесть и тонус
+     (со строгим запретом негативных триггерных слов дистрофии/дряхлости).
 
 Поддерживает универсальную работу с API:
 - zveno.ai (мультимодальный Chat Completions с передачей фото и промпта)
@@ -42,213 +43,425 @@ YEARS_FORWARD = 20
 # =====================================================================================
 # ЧАСТЬ 1: ФИКСИРОВАННЫЙ ПРОМПТ — Разделение скелета/идентичности и трансформации тела
 # =====================================================================================
-FIXED_IDENTITY_PROMPT = f"""Transform this photograph to realistically show the EXACT SAME person aged by {YEARS_FORWARD} years into their future. This is an advanced forensic, health-modulated aging visualization.
+FIXED_IDENTITY_PROMPT = f"""CRITICAL PHOTO-TRANSFORMATION SPECIFICATION ({YEARS_FORWARD} YEARS FORWARD):
 
-BLOCK A — STRICT IDENTITY & SKELETAL LOCK (DO NOT ALTER):
-1. ABSOLUTE FACIAL RECOGNIZABILITY: Exactly preserve the person's unique cranial and facial bone architecture, nose bridge width and tip shape, eye socket shape and aperture, eye color, ear anatomy, lip geometry and thickness, chin and jaw bone structure, and forehead proportions.
-2. INDIVIDUAL IDENTIFIERS: Keep all unique identifying features completely intact: moles, birthmarks, freckles, scars, dimples, facial asymmetries, and visible tattoos.
-3. SCENE & COMPOSITION LOCK: Maintain the exact same camera angle, framing, composition, perspective, focal length, distance from camera, and skeletal pose (position of limbs, torso angle). Preserve original background environment and lighting direction/quality.
-4. CORE BIOLOGY: Do NOT alter gender, ethnicity, skeletal height, or limb bone lengths.
-5. PHOTOREALISM: The output MUST be 100% photorealistic — indistinguishable from a genuine, unedited photograph taken {YEARS_FORWARD} years later. No airbrushed plastic skin, no illustration, no painting, and no caricature.
+1. ABSOLUTE FACIAL IDENTITY LOCK (100% RECOGNIZABILITY):
+- Preserve the exact same individual from the input photograph. Any acquaintance must recognize them within 0.1 seconds.
+- IMMUTABLE CENTRAL IDENTITY TRIANGLE: Exactly preserve the eye shape, iris color, gaze direction, interpupillary distance, eyebrow arch, nose bridge and tip geometry, philtrum, lip shape and proportions, ear anatomy, and cranial bone structure. All natural moles, scars, birthmarks, and visible tattoos must remain completely intact.
+- Preserve the identical camera angle, framing, composition, perspective, lighting direction, and background environment.
 
-BLOCK B — MANDATORY FULL-BODY & CLOTHING TRANSFORMATION (MANDATORY ACROSS THE WHOLE BODY):
-1. TRANSFORMATION MUST EXTEND TO THE ENTIRE VISIBLE BODY: Do NOT confine changes solely to the head! Age, metabolic changes, and physical fitness must visibly and coherently alter every visible anatomical zone from head to feet.
-2. BODY COMPOSITION & SOFT TISSUES: Accurately modify the volume of subcutaneous adipose tissue and skeletal muscle mass across the neck, shoulders, chest, abdomen/waistline, back, arms, forearms, hands, hips, and legs according to the health profile below:
-   - For high BMI, sedentary lifestyle, or poor nutrition: visible thickening of the neck, rounded slouching shoulders, visceral abdominal distension (belly fat), softened arms, and heavier thighs.
-   - For severe chronic illness or muscle wasting (sarcopenia): thinning of limbs, loss of bicep and deltoid mass, sunken chest, prominent clavicles, and accentuated tendon lines.
-   - For athletic habits or healthy potential: lean athletic frame, firm muscular definition in shoulders, arms, chest, and legs, flat trim abdomen, and confident upright posture.
-3. CLOTHING FIT & DRAPE ADAPTATION: Retain the style, garment category, and color palette of the original clothing, BUT physically alter how the clothing drapes and tensions over the aged body:
-   - If weight is gained: fabric of shirts, jackets, and trousers must stretch tightly across the enlarged abdomen, waist, and hips, creating realistic horizontal tension creases and pulling at buttons/seams.
-   - If weight or muscle is lost: garments should hang noticeably looser, sagging slightly at the shoulders, chest, and waistband.
-   - If athletic/toned: clothing conforms cleanly and neatly to a firm, athletic physique.
-4. EXPOSED SKIN CONSISTENCY: The texture, elasticity, dermal thickness, age spots (solar lentigo), crepiness, and vascularity on all visible skin areas (neck, décolletage, forearms, dorsal hands, fingers, knees, legs) MUST strictly match the biological aging of the facial skin. Hands must show age-appropriate skin thinning, visible extensor tendons, and veins corresponding to the patient's cardiovascular and somatic condition."""
+2. MANDATORY FULL-BODY & CLOTHING MORPHING (DO NOT STOP AT THE NECK):
+- You MUST apply the transformation to the ENTIRE visible body in the frame (face, hair, neck, shoulders, chest, abdomen/waist, arms, hands, legs, and posture), NOT just the head.
+- Reshape the body silhouette (fat distribution, waist circumference, shoulder width, muscle tone, posture) and exposed skin on the neck, arms, hands, and legs strictly according to the transformation profile below.
+- Keep the identical clothing items, style, and colors, but physically adapt how the fabric stretches, drapes, or tensions over the transformed physique."""
 
 
 # =====================================================================================
-# ЧАСТЬ 2: ПРАВИЛА МАППИНГА ФАКТОРОВ ЗДОРОВЬЯ → ВИЗУАЛЬНЫХ ЭФФЕКТОВ СТАРЕНИЯ (3 УРОВНЯ)
+# ЧАСТЬ 2: КАЛИБРОВКА ВОЗРАСТА, АРХЕТИПА И ВЕКТОРА ТРАНСФОРМАЦИИ ФИГУРЫ
 # =====================================================================================
-AGING_RULES_FOR_LLM = """You are a forensic aging specialist and biomedical illustrator. Based on the health data and scenario below, write a DETAILED visual physical description (in English, 8-12 sentences) of exactly how this person's appearance will change over {years} years.
-
-SCENARIO MODE: {scenario_title}
-{scenario_context}
-
-YOUR DESCRIPTION MUST RIGOROUSLY INTEGRATE ALL 3 ANATOMICAL LEVELS:
-- LEVEL 1 (Face, Head & Hair): skin texture, undertone, micro-wrinkles, periorbital zone (dark circles, eye bags, hooded lids), smoker's lines, nasolabial folds, jawline definition/jowls/double chin, hair thinning and silver/gray progression.
-- LEVEL 2 (Neck, Hands, Arms & Exposed Legs Skin): platysma neck bands (crepiness/sagging vs firm smoothness), dorsal hands and fingers (skin thinning, visible extensor tendons, protruding veins, age spots/lentigo, finger puffiness/edema), forearm and leg skin turgor.
-- LEVEL 3 (Full-Body Somatotype, Musculature, Posture & Clothing Fit): visceral waist circumference, shoulder broadness vs kyphotic slump, muscle mass retention vs sarcopenia (muscle atrophy), posture alignment, and exactly how the original clothing stretches, drapes, or sags over the transformed figure.
-
-MAPPING GUIDELINES TO APPLY:
-1. SMOKING:
-   - 0: clear healthy skin around mouth, natural lip color, healthy vascular glow on hands and face.
-   - >10/day: deep vertical smoker's lines around mouth, yellowish tooth tint, ashy-gray sallow skin, premature thinning of dorsal hand skin.
-   - Vape/hookah: dehydrated skin, premature fine lines, dull undertone.
-2. ALCOHOL:
-   - 0-2/week: firm defined jawline, clear bright eyes, no facial or ankle edema.
-   - >7/week: facial puffiness, dilated capillaries (rosacea/spider veins) on nose and cheeks, bloated fingers, heavy jowls.
-3. BMI & 20-YEAR METABOLIC DYNAMICS:
-   - BMI <18.5: gaunt hollow cheeks, sunken temples, bony neck, thin limbs, loose sagging clothing.
-   - BMI 18.5-24.8: proportional well-defined jawline, balanced healthy body composition, clothing fits naturally.
-   - BMI 25-29.9: fuller face, developing double chin, thickened waistline, clothing tighter across midsection.
-   - BMI >=30: prominent double chin, thick neck, visceral abdominal protrusion, heavy limbs, fabric stretching with tension folds.
-   - Note on Sedentary + Fast food: over 20 years, even borderline BMI progresses into visceral abdominal adiposity with weakened shoulder and arm muscles (sarcopenic body composition).
-4. PHYSICAL ACTIVITY:
-   - Sedentary (<4000 steps): soft sagging body contours, rounded slumped forward-head posture, visible muscle atrophy in arms and thighs.
-   - Active gym (>8000 steps): well-maintained muscle tone in shoulders, arms, chest, and legs, flat trim abdomen, upright confident stance.
-5. SLEEP & STRESS:
-   - Poor sleep (<6h): deep dark purple under-eye hollows, heavy drooping eyelids, exhausted dull skin.
-   - High stress: prematurely bleached white/gray hair, deep horizontal forehead furrows and glabellar frown lines, tense neck tendons.
-   - Low stress + good sleep: smooth forehead, relaxed peaceful expression, graceful silvering of hair.
-6. CHRONIC ILLNESSES:
-   - Hypertension: flushed face, visible temporal vascular prominence.
-   - Diabetes: acanthosis nigricans on neck folds, metabolic abdominal weight.
-   - CVD / Stroke: pale grayish skin tone, fragile frail appearance, translucent thinning skin on hands.
-
-OUTPUT REQUIREMENT: Output ONLY a single coherent descriptive paragraph (8-12 sentences) in ENGLISH. Focus strictly on visible physical anatomy, skin textures, body contours, posture, and clothing tension. Do NOT include any intro, outro, headers, bullet points, or medical disclaimers."""
-
-
-def _build_deterministic_aging_description(metrics: dict, user_data: UserHabitsInput, scenario: str = "current") -> str:
+def _compute_visual_aging_targets(metrics: dict, user_data: UserHabitsInput, scenario: str = "current") -> dict:
     """
-    Детерминированный fallback: строит полное описание старения (3 анатомических уровня)
-    без LLM, строго по правилам для выбранного сценария ("current" или "potential").
+    Вычисляет целевой визуальный возраст (visual_target_age), возрастной архетип (age_stage_descriptor),
+    жёсткие возрастные рамки (age_guardrail) и точную инструкцию изменения фигуры (body_morph_instruction).
     """
-    effects_level1 = []  # Лицо, голова, волосы
-    effects_level2 = []  # Шея, кисти рук, открытая кожа
-    effects_level3 = []  # Комплекция тела, осанка, посадка одежды
+    chrono_future_age = user_data.age + 20
+    bio_age_now = float(metrics.get("biological_age", user_data.age))
+    bio_delta = bio_age_now - float(user_data.age)
+    years_delta = float(metrics.get("years_delta", 0.0))
+    remaining_gain = float(metrics.get("remaining_years_gain", 0.0))
+
+    # Базовый расчёт визуального возраста текущего сценария
+    if bio_delta > 0 or years_delta < 0:
+        cur_raw = chrono_future_age + max(0.0, bio_delta * 1.15) + max(0.0, -years_delta * 0.4)
+    elif bio_delta <= 0 and years_delta >= 2.0:
+        cur_raw = chrono_future_age - min(6.0, abs(bio_delta) * 0.8 + 2.0)
+    else:
+        cur_raw = chrono_future_age + bio_delta * 0.5
+    current_target_age = max(user_data.age + 11, min(92, int(round(cur_raw))))
+
+    if scenario == "current":
+        visual_target_age = current_target_age
+    else:
+        # scenario == "potential"
+        raw_pot_age = chrono_future_age - min(8.0, max(4.0, remaining_gain * 0.6 + 4.0))
+        pot_age = int(round(raw_pot_age))
+        # Сценарий potential всегда минимум на 6 лет моложе current, но не моложе age + 10
+        visual_target_age = min(pot_age, current_target_age - 6)
+        visual_target_age = max(user_data.age + 10, visual_target_age)
+
+    # Определение возрастного архетипа и защитных рамок (age guardrails)
+    if visual_target_age <= 39:
+        age_stage_descriptor = f"a prime adult in their late 30s ({visual_target_age} years old)"
+        age_guardrail = (
+            f"CRITICAL AGE VALIDATION: The person is ONLY {visual_target_age} years old — a young-to-prime adult! "
+            "Strictly FORBID any elderly or senile features, NO gray/white hair (unless high stress in current mode), "
+            "NO deep wrinkles, NO sagging skin, NO frail posture."
+        )
+    elif 40 <= visual_target_age <= 49:
+        age_stage_descriptor = f"a mature adult in their 40s ({visual_target_age} years old)"
+        age_guardrail = (
+            f"CRITICAL AGE VALIDATION: The person is {visual_target_age} years old (middle adulthood, NOT old/elderly!). "
+            "Show natural 40s maturity only; strictly FORBID senile/geriatric skin, heavy jowls, or frail elderly appearance."
+        )
+    elif 50 <= visual_target_age <= 59:
+        age_stage_descriptor = f"a middle-aged adult in their 50s ({visual_target_age} years old)"
+        age_guardrail = (
+            f"CRITICAL AGE VALIDATION: The person is {visual_target_age} years old (in their 50s, NOT an 80-year-old senior!). "
+            "Keep age changes proportional to a 50-something adult."
+        )
+    elif 60 <= visual_target_age <= 69:
+        age_stage_descriptor = f"a mature person in their 60s ({visual_target_age} years old)"
+        age_guardrail = f"CRITICAL AGE VALIDATION: Age appearance must accurately match {visual_target_age} years old."
+    else:
+        age_stage_descriptor = f"an older senior person around {visual_target_age} years old"
+        age_guardrail = f"CRITICAL AGE VALIDATION: Show authentic {visual_target_age}-year-old senior aging characteristics."
+
+    # Точный расчёт трансформации фигуры всего тела
+    bmi = float(metrics.get("bmi", 24.0))
+    lifestyle = user_data.lifestyle_activity
+    steps = user_data.daily_steps
+    ff = user_data.fastfood_times_per_week
+    oncology = user_data.has_oncology
 
     if scenario == "potential":
-        # СЦЕНАРИЙ ЗДОРОВОГО ПОТЕНЦИАЛА (отказ от вредных привычек, спорт, сон, нормальный вес)
-        effects_level1.append(
-            "Over 20 calendar years, the person exhibits remarkably graceful, slow biological aging, appearing visually only about 12 to 14 years older"
-        )
-        effects_level1.append(
-            "The face radiates vibrant health with a clear, smooth, radiant complexion, minimal fine laugh lines around the eyes, completely absent smoker's lines, calm rested eyes without puffiness, a firm defined jawline, and natural, elegant silvering of well-maintained hair"
-        )
-        effects_level2.append(
-            "The neck remains firm and toned with smooth skin elasticity, and the hands display healthy, well-hydrated skin with no premature liver spots or fragile thinning"
-        )
-        effects_level3.append(
-            "The entire body maintains an upright, confident athletic posture with excellent muscle tone across the shoulders, arms, chest, and legs, and a lean, trim waistline with normalized healthy weight (BMI ~22.5)"
-        )
-        effects_level3.append(
-            "The original clothing fits cleanly, comfortably, and neatly across a strong, fit, energetic physique, radiating vitality and preserved reserve"
-        )
-        return (
-            "POTENTIAL HEALTHY AGING PROFILE (FULL BODY, EXPOSED SKIN & CLOTHING FIT):\n"
-            + " ".join(effects_level1 + effects_level2 + effects_level3)
-        )
+        if bmi < 20.0:
+            body_morph_instruction = (
+                "FULL-BODY RECOMPOSITION (HEALTHY MUSCLE GAIN): Transform the thin frame by adding healthy, "
+                "firm athletic muscle mass to the shoulders, chest, arms, forearms, and legs. "
+                "Fill out the face with healthy, hydrated subcutaneous volume — smooth full cheeks, strong defined jawline, "
+                "upright broad-shouldered posture. Clothing fits more substantially across the broader shoulders and chest."
+            )
+        elif 20.0 <= bmi <= 25.5:
+            body_morph_instruction = (
+                "FULL-BODY ATHLETIC TONING: Noticeably improve body physique — broader, squared-up athletic shoulders, "
+                "firmer toned chest and arms with healthy skin turgor, flat tight waist/core, upright confident posture. "
+                "Face retains full healthy volume with a crisp, clean jawline and high cheekbones. "
+                "Clothing drapes cleanly over an athletic, fit torso."
+            )
+        else:
+            body_morph_instruction = (
+                "FULL-BODY HEALTHY TRANSFORMATION (FAT LOSS TO FIT ATHLETIC BUILD): Visibly slim down excess visceral belly fat, "
+                "waist bulk, and neck/chin fullness, replacing it with a firm, toned, strong athletic physique. "
+                "Eliminate the double chin to reveal a clean, sharp, well-supported jawline while keeping healthy, "
+                "vibrant cheek volume (never gaunt or hollow!). Torso and waist become noticeably trimmer and fitter, "
+                "shoulders open up, and clothing fits more comfortably and neatly around the slimmer midsection."
+            )
+    else:
+        # scenario == "current"
+        if bmi >= 30.0 or (bmi >= 26.0 and lifestyle in ("sedentary", "light") and ff >= 3):
+            body_morph_instruction = (
+                "FULL-BODY WEIGHT PROGRESSION: Visibly increase body heaviness and visceral fat accumulation over 20 years — "
+                "noticeably thicker neck, prominent double chin and heavy lower face, fuller rounded shoulders, "
+                "significantly expanded midsection/belly and wider waist, heavier arms and legs. "
+                "Existing clothing stretches tightly across the protruding stomach, chest, and shoulders with realistic fabric tension creases."
+            )
+        elif bmi < 26.0 and (lifestyle == "sedentary" or steps < 5000 or ff >= 4 or user_data.alcohol_drinks_per_week >= 8):
+            body_morph_instruction = (
+                "FULL-BODY SARCOPENIC SHIFT: Show 20 years of sedentary muscle loss combined with central fat gain — "
+                "shoulders become narrower and slouched forward, arms and chest lose muscle tone and look softer/flatter, "
+                "while a noticeable soft midsection/belly develops at the waist. Neck angles slightly forward, jawline softens."
+            )
+        elif bmi < 18.5 or oncology:
+            body_morph_instruction = (
+                "FULL-BODY MUSCLE LOSS & FRAILTY: Moderate loss of muscle volume in the shoulders and arms, "
+                "slightly sunken collarbones, weakened silhouette, with existing clothing hanging slightly loose over a diminished frame."
+            )
+        elif lifestyle == "active_gym" and steps >= 8000 and user_data.smoking_cigs_per_day == 0:
+            body_morph_instruction = (
+                "FULL-BODY ATHLETIC RETENTION: Maintain a strong, sturdy athletic build with squared shoulders and upright posture, "
+                "reflecting lifelong fitness alongside natural age maturation."
+            )
+        else:
+            body_morph_instruction = (
+                "FULL-BODY MODERATE AGE MATURATION: Natural age-related softening of the torso and posture, "
+                "slight loss of upper body firmness, and a gently relaxed waistline, with clothing fitting naturally."
+            )
 
-    # СЦЕНАРИЙ ТЕКУЩЕГО ТРЕНДА (current)
+    return {
+        "chrono_future_age": chrono_future_age,
+        "visual_target_age": visual_target_age,
+        "age_stage_descriptor": age_stage_descriptor,
+        "age_guardrail": age_guardrail,
+        "body_morph_instruction": body_morph_instruction,
+    }
+
+
+# =====================================================================================
+# ЧАСТЬ 3: ПОЛНЫЙ СБОР ДАННЫХ АНКЕТЫ, ДИАГНОЗОВ, АНАЛИЗОВ И СВОБОДНОГО ТЕКСТА
+# =====================================================================================
+def _extract_comprehensive_health_context(metrics: dict, user_data: UserHabitsInput, scenario: str, targets: dict) -> str:
+    """
+    Извлекает и структурирует абсолютно все данные пользователя:
+    анкету, расчётные метрики, прошлый анамнез, все 10 хронических диагнозов,
+    все 8 групп медикаментов, свободный текст (custom_health_nuance) и анализы (lab_summary_info).
+    """
+    eff_flags = metrics.get("effective_flags", {})
+    lines = []
+
+    # 1. Биометрика и возраст
+    lines.append(f"- Age now: {user_data.age}, Chronological age in 20 years: {targets['chrono_future_age']}, Target visual age: {targets['visual_target_age']} ({targets['age_stage_descriptor']})")
+    lines.append(f"- Gender: {'Male' if user_data.gender == 'male' else 'Female'}, Height: {user_data.height_cm} cm, Weight: {user_data.weight_kg} kg, Current BMI: {metrics.get('bmi', 24.0):.1f}")
+    bio_age = metrics.get('biological_age', user_data.age)
+    lines.append(f"- Biological age now: {bio_age:.1f} (delta: {bio_age - user_data.age:+.1f} years)")
+    lines.append(f"- Cardiovascular Health (AHA LE8): {metrics.get('aha_le8_score', 50)}/100, 10-Year CVD Risk: {metrics.get('cvd_10yr_risk_percent', 5.0):.1f}%")
+
+    # 2. Привычки и образ жизни
+    lines.append(f"- Smoking: {user_data.smoking_cigs_per_day} cigs/day (Hidden nicotine/vape: {eff_flags.get('has_hidden_nicotine', False)})")
+    if user_data.past_smoking_years > 0 or user_data.years_since_quitting_smoking > 0:
+        lines.append(f"- Past smoking history: {user_data.past_smoking_years} years ({user_data.past_smoking_cigs_per_day} cigs/day), quit {user_data.years_since_quitting_smoking} years ago")
+    lines.append(f"- Alcohol: {user_data.alcohol_drinks_per_week} drinks/week (Hidden alcohol: {eff_flags.get('has_hidden_alcohol', False)}, Past heavy alcohol: {user_data.past_heavy_alcohol})")
+    lines.append(f"- Physical activity: {user_data.lifestyle_activity}, Daily steps: {user_data.daily_steps} (Activity limitation: {eff_flags.get('has_activity_limitation', False)})")
+    lines.append(f"- Sleep: {user_data.sleep_hours} hours/night, Stress level: {user_data.stress_level}")
+    lines.append(f"- Nutrition: {user_data.fastfood_times_per_week} fastfood times/week (Hidden poor diet: {eff_flags.get('has_hidden_poor_diet', False)})")
+    if user_data.hazardous_work and user_data.hazardous_work != "no":
+        lines.append(f"- Hazardous workplace environment: {user_data.hazardous_work}")
+
+    # 3. Хронические заболевания и приём лекарств
+    diag_list = []
+    if user_data.has_hypertension:
+        diag_list.append(f"Hypertension (meds: {user_data.meds_antihypertensive})")
+    if user_data.has_diabetes:
+        diag_list.append(f"Type 2 Diabetes (meds: {user_data.meds_antidiabetic})")
+    if user_data.has_atherosclerosis:
+        diag_list.append(f"Atherosclerosis (statins: {user_data.meds_statins_lipid})")
+    if user_data.has_cvd_infarction_angina:
+        diag_list.append("Coronary Heart Disease / Angina / Post-Infarction")
+    if user_data.has_stroke_tia:
+        diag_list.append("Cerebrovascular Disease / Stroke / TIA")
+    if user_data.has_thrombosis_pe:
+        diag_list.append(f"Thrombosis / PE (anticoagulants: {user_data.meds_anticoagulants})")
+    if user_data.has_oncology:
+        diag_list.append("Oncological diagnosis in history")
+    if user_data.has_rheumatoid_arthritis:
+        diag_list.append("Rheumatoid Arthritis / Systemic autoimmune inflammation")
+    if user_data.has_ibd_polyps:
+        diag_list.append("Inflammatory Bowel Disease / Colonic polyps")
+    if user_data.has_urinary_infection:
+        diag_list.append("Chronic Urinary Tract / Kidney Infection")
+
+    other_meds = []
+    if user_data.meds_antiarrhythmic:
+        other_meds.append("antiarrhythmics")
+    if user_data.meds_asthma_copd:
+        other_meds.append("asthma/COPD bronchodilators")
+    if user_data.meds_glucocorticoids:
+        other_meds.append("systemic glucocorticoid hormones (cushingoid facial fullness risk)")
+    if user_data.meds_daily_nsaids:
+        other_meds.append("daily NSAIDs")
+
+    if diag_list:
+        lines.append(f"- Medical conditions: {'; '.join(diag_list)}")
+    if other_meds:
+        lines.append(f"- Specific ongoing medications: {', '.join(other_meds)}")
+
+    # 4. Свободный текст пользователя и клинический анализ нюанса
+    nuance_raw = (user_data.custom_health_nuance or "").strip()
+    nuance_info = metrics.get("custom_nuance_info") or {}
+    if nuance_raw:
+        lines.append(f"- User Personal Health Nuance (free text): \"{nuance_raw}\"")
+        if nuance_info.get("title") or nuance_info.get("clinical_summary"):
+            lines.append(f"- Clinical Nuance Analysis: {nuance_info.get('title', '')} — {nuance_info.get('clinical_summary', '')}")
+
+    # 5. Лабораторные анализы
+    lab_info = metrics.get("lab_summary_info") or {}
+    abnormalities = lab_info.get("detected_abnormalities") or []
+    lab_summary = lab_info.get("clinical_summary") or ""
+    if abnormalities or lab_summary:
+        abn_text = "; ".join(abnormalities) if abnormalities else "None specified"
+        lines.append(f"- Laboratory Blood Test Abnormalities: {abn_text}")
+        if lab_summary:
+            lines.append(f"- Lab Clinical Summary: {lab_summary}")
+
+    return "\n".join(lines)
+
+
+# =====================================================================================
+# ЧАСТЬ 4: ПОСТ-ФИЛЬТР ДЛЯ СЦЕНАРИЯ POTENTIAL (ЗАЩИТА ОТ ДИСТРОФИИ И МОРЩИН)
+# =====================================================================================
+def _sanitize_potential_prompt(prompt_text: str) -> str:
+    """
+    Пост-фильтр для сценария potential (Здоровый потенциал).
+    Удаляет и заменяет любые триггерные слова-ловушки и отрицания,
+    на которые компактные графические модели (Gemini Flash Image и др.)
+    реагируют рисованием дистрофии, глубоких морщин или дряхлости.
+    """
+    text = prompt_text
+
+    # 1. Замена распространённых отрицательных фраз
+    phrases = [
+        (r"\b(?:not|never|no|without|zero|free of)\s+(?:deep\s+)?wrinkles?(?:\s+skin)?\b", "smooth, elastic dermal texture"),
+        (r"\b(?:not|never|no|without|zero|free of)\s+(?:facial\s+)?crevices?\b", "smooth facial contours"),
+        (r"\b(?:not|never|no|without|zero|free of)\s+(?:glabellar\s+)?furrows?\b", "calm, relaxed forehead"),
+        (r"\b(?:not|never|no|without|zero|free of)\s+(?:skin\s+)?sagging(?:\s+skin)?\b", "firm, well-lifted skin"),
+        (r"\b(?:not|never|no|without|zero|free of)\s+(?:drooping|jowls)(?:\s+skin)?\b", "clean, crisp jawline contours"),
+        (r"\b(?:not|never|no|without|zero|free of)\s+gaunt(?:\s+cheeks)?\b", "hydrated, youthful cheek volume"),
+        (r"\b(?:not|never|no|without|zero|free of)\s+hollow(?:ed)?(?:\s+cheeks)?\b", "plump, firm facial contours"),
+        (r"\b(?:not|never|no|without|zero|free of)\s+sunken(?:\s+features|\s+cheeks)?\b", "supported, well-hydrated features"),
+        (r"\b(?:not|never|no|without|zero|free of)\s+emaciated\b", "healthy, well-nourished volume"),
+        (r"\b(?:not|never|no|without|zero|free of)\s+frail\b", "strong, energetic presence"),
+        (r"\b(?:not|never|no|without|zero|free of)\s+(?:old|elderly|senile)\b", "vibrant and gracefully matured"),
+        (r"\b(?:not|never|no|without|zero|free of)\s+(?:thin|skinny)\b", "athletic and well-built"),
+        (r"\bweight\s+loss\b", "athletic slimming and toning"),
+    ]
+    for pat, rep in phrases:
+        text = re.sub(pat, rep, text, flags=re.IGNORECASE)
+
+    # 2. Замена отдельных слов-триггеров
+    word_map = [
+        (r"\b(?:deep\s+)?wrinkles?\b", "fine natural skin texture"),
+        (r"\bfurrows?\b", "fine mature lines"),
+        (r"\bcrevices?\b", "natural skin contour"),
+        (r"\bgaunt\b", "firm and toned"),
+        (r"\bhollow(?:ed)?\b", "well-hydrated"),
+        (r"\bsunken\b", "well-supported"),
+        (r"\bemaciated\b", "athletic and lean"),
+        (r"\bsagging\b", "firm, lifted"),
+        (r"\bdrooping\b", "well-supported"),
+        (r"\bfrail\b", "vital and resilient"),
+        (r"\bsenile\b", "distinguished"),
+        (r"\belderly\b", "mature adult"),
+        (r"\bashy\b", "warm and healthy"),
+        (r"\bsallow\b", "radiant"),
+        (r"\bcadaverous\b", "vibrant"),
+        (r"\bbloated\b", "cleanly defined"),
+        (r"\bpuffiness\b", "clear rested contours"),
+        (r"\bedema\b", "healthy vascular tone"),
+    ]
+    for pat, rep in word_map:
+        text = re.sub(pat, rep, text, flags=re.IGNORECASE)
+
+    return text
+
+
+# =====================================================================================
+# ЧАСТЬ 5: ДЕТЕРМИНИРОВАННЫЙ FALLBACK (СТРУКТУРИРОВАННЫЕ 5 БЛОКОВ)
+# =====================================================================================
+def _build_deterministic_aging_description(
+    metrics: dict,
+    user_data: UserHabitsInput,
+    scenario: str = "current",
+    targets: dict | None = None
+) -> str:
+    """
+    Детерминированный fallback: строит структурированное 5-блочное описание старения
+    без вызова LLM, строго по правилам для выбранного сценария ("current" или "potential").
+    """
+    if targets is None:
+        targets = _compute_visual_aging_targets(metrics, user_data, scenario)
+
     eff_flags = metrics.get("effective_flags", {})
     cigs = user_data.smoking_cigs_per_day
     drinks = user_data.alcohol_drinks_per_week
-    bmi = metrics.get("bmi", 24.0)
-    lifestyle = user_data.lifestyle_activity
-    steps = user_data.daily_steps
     sleep = user_data.sleep_hours
     stress = user_data.stress_level
-    ff = user_data.fastfood_times_per_week
-    bio_age = metrics.get("biological_age", user_data.age)
-    bio_delta = round(bio_age - user_data.age, 1)
+    nuance_raw = (user_data.custom_health_nuance or "").strip()
+    lab_info = metrics.get("lab_summary_info") or {}
+    abnormalities = lab_info.get("detected_abnormalities") or []
 
-    # --- Уровень 1: Лицо, глаза, кожа, волосы ---
+    if scenario == "potential":
+        # СЦЕНАРИЙ ЗДОРОВОГО ПОТЕНЦИАЛА (СТРОГО БЕЗ НЕГАТИВНЫХ СЛОВ, АКТИВНАЯ РЕКОМПОЗИЦИЯ И ВИТАЛЬНОСТЬ)
+        silvering = "with subtle, distinguished silver accents at the temples" if targets["visual_target_age"] >= 48 else "retaining rich natural hair pigmentation and fullness"
+
+        block1 = f"1. TARGET AGE & RADIANT VITALITY: {targets['age_stage_descriptor']}. The person exhibits peak vitality, restorative energy, and graceful mature health, appearing visually at {targets['visual_target_age']} years old."
+        block2 = (
+            f"2. FACE, JAWLINE & HAIR: 100% facial identity, eye shape, nose structure, and lip geometry are preserved. "
+            f"Facial skin is plump, deeply hydrated, and resilient with a warm healthy glow and firm dermal elasticity. "
+            f"The jawline is sharply sculpted and clean-cut with healthy cheek volume. "
+            f"Eyes are clear, alert, and vibrant. Hair is thick, lustrous, and well-groomed {silvering}."
+        )
+        block3 = f"3. ATHLETIC FULL-BODY RECOMPOSITION & POSTURE: {targets['body_morph_instruction']}"
+        block4 = (
+            "4. TONED ARMS, HANDS & LEGS: The arms, forearms, and shoulders show well-defined muscular tone and firm skin turgor. "
+            "Hands and fingers display smooth, resilient skin with excellent vascular circulation and healthy nails. "
+            "Legs are strong and athletic."
+        )
+        block5 = (
+            "5. TAILORED CLOTHING DRAPE: The original outfit fits cleanly, comfortably, and neatly over the athletic, "
+            "trimmed silhouette, draping elegantly over broad squared shoulders and a flat, firm core."
+        )
+        raw_text = "\n".join([block1, block2, block3, block4, block5])
+        return _sanitize_potential_prompt(raw_text)
+
+    # СЦЕНАРИЙ ТЕКУЩЕГО ТРЕНДА (current)
+    block1 = f"1. TARGET AGE & OVERALL IMPRESSION: {targets['age_stage_descriptor']}. Overall somatic aging matching {targets['visual_target_age']} years old with cumulative lifestyle wear over 20 years."
+
+    # Блок 2: Лицо, кожа, волосы
+    face_details = []
     if cigs > 15:
-        effects_level1.append(
-            "The facial skin is markedly sallow, ashy-gray, and dehydrated, framed by deep perioral crevices radiating from the lips (pronounced smoker's lines), hollowed cheeks, and noticeably yellowed teeth"
-        )
+        face_details.append("marked sallow ashy undertone, deep perioral smoker lines radiating from lips, and yellowed tooth tint")
     elif cigs > 0 or eff_flags.get("has_hidden_nicotine"):
-        effects_level1.append(
-            "Noticeable fine smoker's lines border the lips, paired with a slightly dull grayish skin undertone and premature crow's feet"
-        )
+        face_details.append("fine smoker lines bordering lips, slightly dull grayish skin undertone, and pronounced crow's feet")
     else:
-        effects_level1.append(
-            "The skin around the mouth remains preserved with natural lip tone, without tobacco-induced perioral creasing"
-        )
+        face_details.append("natural lip tone without tobacco-induced perioral creasing")
 
     if drinks > 10 or (eff_flags.get("has_hidden_alcohol") and drinks > 5):
-        effects_level1.append(
-            "Heavy facial bloating and edema are prominent, accompanied by visible spider veins (rosacea) across the nose and cheeks, swollen heavy jowls, and watery tired eyes"
-        )
+        face_details.append("facial puffiness with visible spider veins (rosacea) across nose and cheeks, swollen heavy jowls, and watery tired eyes")
     elif drinks > 4:
-        effects_level1.append(
-            "Mild facial puffiness blurs the jawline with subtle redness across the nasal bridge"
-        )
+        face_details.append("mild facial puffiness blurring the jawline with subtle redness across the nasal bridge")
 
     if sleep < 6:
-        effects_level1.append(
-            "Deep dark purple circles and heavy swollen bags weigh down the lower eyelids, giving an exhausted, hollow-eyed expression"
-        )
+        face_details.append("deep dark purple under-eye hollows and heavy swollen lower eyelid bags")
     elif sleep >= 7.5:
-        effects_level1.append("The periorbital area looks rested with alert, clear eyes")
+        face_details.append("rested periorbital area with alert eyes")
 
     if stress == "high":
-        effects_level1.append(
-            "The hair shows extensive, premature bleaching into stark white or coarse gray, accentuated by deep horizontal forehead furrows and prominent vertical glabellar frown lines"
-        )
+        face_details.append("extensive premature gray and white hair bleaching, deep horizontal forehead furrows, and sharp glabellar frown lines")
     elif stress == "medium":
-        effects_level1.append("Moderate silver-gray streaks weave through the natural hair color with moderate forehead creases")
+        face_details.append("moderate silver-gray streaks through hair with moderate forehead creases")
 
-    # --- Уровень 2: Шея, кисти рук, открытая кожа ---
+    if user_data.meds_glucocorticoids:
+        face_details.append("distinct round cushingoid facial fullness and softened jawline definition from chronic steroid therapy")
+
+    if nuance_raw:
+        face_details.append(f"visible manifestation of chronic feature: {nuance_raw[:70]}")
+
+    if abnormalities:
+        face_details.append("dull skin undertone and metabolic puffiness linked to unmanaged laboratory imbalances")
+
+    face_desc = ", ".join(face_details) if face_details else "natural age-appropriate deepening of facial expression lines and softened jawline definition"
+    block2 = f"2. FACE, SKIN & HAIR: Preserves central eye, nose, and mouth identity. Facial changes include {face_desc}."
+
+    # Блок 3: Шея, торс, фигура
+    block3 = f"3. NECK, TORSO & BODY SILHOUETTE: {targets['body_morph_instruction']}"
+
+    # Блок 4: Руки, кисти, ноги
+    hands_details = []
     if user_data.has_hypertension or drinks > 10:
-        effects_level2.append(
-            "The neck shows pronounced platysma banding and skin crepiness, while the hands and fingers appear mildly swollen and puffy with engorged veins"
-        )
-    elif cigs > 10 or bio_delta > 5:
-        effects_level2.append(
-            "The skin on the neck, forearms, and dorsal hands shows severe dermal thinning with papery fragility, protruding extensor tendons, visible blue veins, and scattered brown solar lentigo age spots"
-        )
+        hands_details.append("platysma neck banding, crepiness, and mild edema in fingers and ankles with prominent engorged veins")
+    elif cigs > 10 or targets["visual_target_age"] >= 58:
+        hands_details.append("papery dermal thinning on neck, forearms, and dorsal hands with visible extensor tendons, blue veins, and scattered brown solar lentigo age spots")
     else:
-        effects_level2.append(
-            "Skin on the neck and hands exhibits natural, graceful age-appropriate maturation without extreme thinning or heavy pigmentation"
-        )
+        hands_details.append("natural age-appropriate skin maturation on neck and dorsal hands with moderate skin thinning")
 
-    # --- Уровень 3: Тело, осанка, мышечно-жировой баланс, посадка одежды ---
-    is_sedentary_fat = (lifestyle == "sedentary" and steps < 4500 and (ff >= 3 or bmi >= 25))
-    if bmi >= 32 or (bmi >= 28 and is_sedentary_fat):
-        effects_level3.append(
-            "The overall physique shows marked visceral adiposity with a heavily expanded abdomen, thick neck folds, and softened heavy thighs and arms"
-        )
-        effects_level3.append(
-            "The original clothing is visibly strained and stretched tightly across the protruding belly and waist, displaying prominent horizontal tension wrinkles and pulling seams"
-        )
-    elif is_sedentary_fat or (bmi >= 25 and lifestyle != "active_gym"):
-        effects_level3.append(
-            "Over 20 years of sedentary habits have produced a sarcopenic softer silhouette: rounded slouched shoulders with forward head posture, diminished bicep and shoulder muscle tone, and a distinct softness and belly bulge around the midsection"
-        )
-        effects_level3.append(
-            "The original garments fit noticeably tighter around the waistline while hanging slightly limp over weakened, rounded shoulders"
-        )
-    elif lifestyle == "active_gym" and steps >= 8000:
-        effects_level3.append(
-            "The full-body frame retains impressive muscular definition across the deltoids, arms, chest, and legs, paired with an upright, disciplined posture and flat abdomen"
-        )
-        effects_level3.append(
-            "The original clothing drapes cleanly and comfortably over a robust, fit body structure"
-        )
+    if user_data.has_rheumatoid_arthritis:
+        hands_details.append("mild thickening and visible stiffness in finger interphalangeal joints")
+
+    block4 = f"4. ARMS, HANDS & LEGS: {'; '.join(hands_details)}."
+
+    # Блок 5: Одежда
+    bmi = float(metrics.get("bmi", 24.0))
+    if bmi >= 28:
+        block5 = "5. CLOTHING FIT: The original garments stretch tightly across the protruding belly and waist with prominent horizontal fabric tension creases and pulling at button plackets."
+    elif bmi < 19 or user_data.has_oncology:
+        block5 = "5. CLOTHING FIT: The original clothing hangs noticeably loose and limp over weakened, narrower shoulders and a reduced frame."
     else:
-        effects_level3.append(
-            "The body contours show moderate age-related softening with a mildly rounded stance and slight loss of upper-body muscle volume"
-        )
+        block5 = "5. CLOTHING FIT: The original clothing fits noticeably snugger around the softening midsection while sitting slightly flatter over rounded shoulders."
 
-    # Общая калибровка
-    if bio_delta > 6:
-        effects_level1.insert(
-            0,
-            f"Overall, the person shows accelerated somatic deterioration, looking approximately {YEARS_FORWARD + int(bio_delta * 0.6)} years older across the entire face and body"
-        )
-    elif bio_delta < -4:
-        effects_level1.insert(
-            0,
-            f"Overall, the person is remarkably well-preserved, exhibiting only about {max(11, YEARS_FORWARD - int(abs(bio_delta) * 0.4))} years of visible wear"
-        )
-
-    all_sentences = effects_level1 + effects_level2 + effects_level3
-    return "CURRENT HABITS AGING PROFILE (FULL BODY, EXPOSED SKIN & CLOTHING FIT):\n" + ". ".join(all_sentences) + "."
+    return "\n".join([block1, block2, block3, block4, block5])
 
 
-def _generate_dynamic_prompt_via_llm(metrics: dict, user_data: UserHabitsInput, scenario: str = "current") -> str | None:
+# =====================================================================================
+# ЧАСТЬ 6: ГЕНЕРАЦИЯ ДИНАМИЧЕСКОГО ПРОМПТА ЧЕРЕЗ LLM
+# =====================================================================================
+def _generate_dynamic_prompt_via_llm(
+    metrics: dict,
+    user_data: UserHabitsInput,
+    scenario: str = "current",
+    targets: dict | None = None
+) -> str | None:
     """
-    Генерирует динамическую часть промпта через LLM по правилам 3-уровневого маппинга
-    для выбранного сценария ("current" или "potential").
+    Генерирует компактную 5-блочную динамическую часть промпта через LLM
+    с отдельными системными шаблонами для 'current' и 'potential'.
     """
     api_key = os.getenv("LLM_API_KEY", "").strip()
     base_url = os.getenv("LLM_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/").strip()
@@ -257,47 +470,65 @@ def _generate_dynamic_prompt_via_llm(metrics: dict, user_data: UserHabitsInput, 
     if not api_key or api_key == "ПУСТО":
         return None
 
-    bio_age = metrics.get("biological_age", user_data.age)
-    bio_delta = round(bio_age - user_data.age, 1)
-    aha_score = metrics.get("aha_le8_score", 50)
-    eff_flags = metrics.get("effective_flags", {})
+    if targets is None:
+        targets = _compute_visual_aging_targets(metrics, user_data, scenario)
+
+    comprehensive_context = _extract_comprehensive_health_context(metrics, user_data, scenario, targets)
 
     if scenario == "potential":
-        scenario_title = "OPTIMAL HEALTH POTENTIAL (SCENARIO 2 — WHAT THE PERSON CAN ACHIEVE)"
-        scenario_context = f"""
-The patient has committed fully to all medical recommendations starting today:
-- Completely ceased smoking/vaping (0 cigarettes, 0 nicotine).
-- Alcohol strictly minimized/eliminated (0-1 drink/week).
-- Normalized BMI to an optimal athletic level ~22.5 kg/m² (height: {user_data.height_cm} cm).
-- Physical activity: regular gym/fitness training (active athlete, >9000 steps/day).
-- Sleep: 7.5 to 8.0 hours of restorative deep sleep every night.
-- Stress: low, well-managed. Wholesome nutrient-dense diet without processed fast food.
-- Chronic diseases (hypertension/diabetes) are under optimal clinical control.
-VISUAL TARGET: The biological aging rate dramatically slows down. Over {YEARS_FORWARD} calendar years, the person visually ages only 12 to 14 years!
-They must look remarkably vibrant, fit, toned, energetic, with smooth firm skin on face, neck, and hands, an upright athletic posture, and clothing fitting cleanly and neatly over a healthy physique.
-"""
-    else:
-        scenario_title = "CURRENT HABITS & WEAR (SCENARIO 1 — CURRENT TRAJECTORY)"
-        scenario_context = f"""
-The patient continues their current lifestyle trajectory over the next {YEARS_FORWARD} years:
-- Age: {user_data.age}, Gender: {"male" if user_data.gender == "male" else "female"}
-- Cigarettes/day: {user_data.smoking_cigs_per_day} (hidden nicotine: {eff_flags.get("has_hidden_nicotine", False)})
-- Alcohol drinks/week: {user_data.alcohol_drinks_per_week} (hidden alcohol: {eff_flags.get("has_hidden_alcohol", False)})
-- Current BMI: {metrics.get("bmi", 24.0)} (height: {user_data.height_cm}cm, weight: {user_data.weight_kg}kg)
-- Physical activity: {user_data.lifestyle_activity}, Daily steps: {user_data.daily_steps}
-- Fast food times/week: {user_data.fastfood_times_per_week}
-- Sleep: {user_data.sleep_hours} h/night, Stress level: {user_data.stress_level}
-- Hypertension: {user_data.has_hypertension} (taking meds: {user_data.meds_antihypertensive})
-- Diabetes: {user_data.has_diabetes}, CVD: {user_data.has_cvd_infarction_angina}
-- Biological age delta: {bio_delta:+.1f} years, Heart/vascular resource: {aha_score}/100.
-VISUAL TARGET: Accurately project 20 years of progressive wear across face, neck, hands, full-body composition, and clothing tension.
-"""
+        system_content = (
+            "You are an expert biomedical vitality specialist and aesthetic photo-restoration director. "
+            "Your task is to generate a concise, affirmative photo-enhancement and age-progression instruction (130-160 words) "
+            "for a multimodal image-to-image AI model. "
+            "The instruction must strictly follow exactly 5 labeled blocks (numbered 1 through 5).\n\n"
+            "STRICT LEXICAL BAN:\n"
+            "Never use the words 'wrinkles', 'crevices', 'furrows', 'gaunt', 'hollow', 'sunken', 'thin', 'emaciated', "
+            "'sagging', 'drooping', 'bloated', 'grayish', 'dull', 'elderly', 'frail', or 'disease' — not even in negations "
+            "like 'no wrinkles', 'not gaunt', or 'without sagging'!\n"
+            "Budget image generation models cannot process negations and will paint an emaciated frail old person.\n"
+            "Use ONLY positive, affirmative anatomical descriptors: plump, hydrated, firm, athletic, defined, vibrant, radiant, toned, upright, healthy volume.\n\n"
+            "Output ONLY the 5 numbered blocks — no intro, no outro, no markdown fences, no conversational filler."
+        )
 
-    prompt_instructions = AGING_RULES_FOR_LLM.format(
-        years=YEARS_FORWARD,
-        scenario_title=scenario_title,
-        scenario_context=scenario_context
-    )
+        user_content = f"""SCENARIO: OPTIMAL HEALTH POTENTIAL & ATHLETIC RECOMPOSITION OVER 20 YEARS
+
+PATIENT HEALTH CONTEXT & FULL CLINICAL PROFILE:
+{comprehensive_context}
+
+{targets['age_guardrail']}
+
+MANDATORY 5-BLOCK OUTPUT FORMAT (Use ONLY positive, affirmative words; around 130-160 words total):
+1. TARGET AGE & RADIANT VITALITY: The person is {targets['visual_target_age']} years old ({targets['age_stage_descriptor']}), looking in peak physical condition, vitality, and noble energy for their age.
+2. FACE, JAWLINE & HAIR: 100% preserved facial identity (eyes, nose, mouth/lips, cranial bone structure). Skin is plump, well-hydrated, smooth, and firm with a healthy warm glow. Clean, sculpted, sharp jawline. High cheekbone fullness with healthy subcutaneous volume. Thick, lustrous hair with subtle distinguished silvering at temples only if age >= 48.
+3. ATHLETIC FULL-BODY RECOMPOSITION & POSTURE: Apply this transformation: {targets['body_morph_instruction']}
+4. TONED ARMS, HANDS & LEGS: Firm, sculpted arms and forearms with defined muscular tone. Resilient, smooth, elastic skin on dorsal hands with healthy circulation. Strong upright athletic legs.
+5. TAILORED CLOTHING DRAPE: Original garments drape cleanly, comfortably, and neatly across an athletic, fit frame, accentuating broad shoulders and a trim waist."""
+
+    else:
+        # scenario == "current"
+        system_content = (
+            "You are an expert forensic age-progression specialist and biomedical artist. "
+            "Your task is to generate a concise, high-impact photo-morphing instruction (130-160 words) "
+            "for a multimodal image-to-image AI model. "
+            "The instruction must strictly follow exactly 5 labeled blocks (numbered 1 through 5).\n"
+            "Focus strictly on visible physical anatomy, skin textures, body contours, posture, and clothing tension "
+            "based on cumulative wear and habits.\n"
+            "Output ONLY the 5 numbered blocks — no intro, no outro, no markdown fences, no conversational filler."
+        )
+
+        user_content = f"""SCENARIO: CURRENT WEAR & UNHEALTHY HABITS PROGRESSION OVER 20 YEARS
+
+PATIENT HEALTH CONTEXT & FULL CLINICAL PROFILE:
+{comprehensive_context}
+
+{targets['age_guardrail']}
+
+MANDATORY 5-BLOCK OUTPUT FORMAT (Keep concise, around 130-160 words total):
+1. TARGET AGE & OVERALL IMPRESSION: Specify exact target age ({targets['visual_target_age']} years old) and overall aging progression matching {targets['age_stage_descriptor']}.
+2. FACE, SKIN & HAIR: Concrete changes to facial skin texture, wrinkles, facial tone, periorbital hollows/bags, smoker lines, jawline/chin fullness or double chin, hair graying and density (strictly preserving 100% recognizability of eyes, nose, mouth). Integrate custom health notes and lab abnormalities.
+3. NECK, TORSO & BODY SILHOUETTE: Apply this body transformation: {targets['body_morph_instruction']}
+4. ARMS, HANDS & LEGS: Skin turgor, extensor tendons, veins, pigmentation, or swelling on arms, hands, fingers, and legs.
+5. CLOTHING FIT: Exactly how the original clothing stretches tightly with tension creases across expanded midsection/shoulders, or hangs loose over atrophied muscles."""
 
     candidate_models = [primary_model]
     for backup in ["gemini-3.5-flash-lite", "gemini-3.8-flash"]:
@@ -311,24 +542,17 @@ VISUAL TARGET: Accurately project 20 years of progressive wear across face, neck
             response = client.chat.completions.create(
                 model=model,
                 messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are an expert forensic aging specialist and biomedical illustrator. "
-                            "Write a comprehensive, vivid English visual description covering Face, Neck/Hands, "
-                            "Body Somatotype, Posture, and Clothing Fit. "
-                            "Output ONLY a single cohesive descriptive paragraph (8-12 sentences) — no headers, "
-                            "no bullet points, no markdown code fences, no disclaimers."
-                        )
-                    },
-                    {"role": "user", "content": prompt_instructions}
+                    {"role": "system", "content": system_content},
+                    {"role": "user", "content": user_content}
                 ],
                 temperature=0.3
             )
             result = response.choices[0].message.content.strip()
             result = re.sub(r"```\w*\n?", "", result)
             result = result.strip("`\"'").strip()
-            if len(result) > 120:
+            if len(result) > 100:
+                if scenario == "potential":
+                    result = _sanitize_potential_prompt(result)
                 print(f">>> PORTRAIT PROMPT ({scenario}): Описание сгенерировано через LLM ({model}) <<<")
                 return result
         except Exception as e:
@@ -337,28 +561,45 @@ VISUAL TARGET: Accurately project 20 years of progressive wear across face, neck
     return None
 
 
+# =====================================================================================
+# ЧАСТЬ 7: СБОРКА ИТОГОВОГО ПРОМПТА
+# =====================================================================================
 def build_full_portrait_prompt(metrics: dict, user_data: UserHabitsInput, scenario: str = "current") -> str:
     """
     Создаёт полный промпт для генерации портрета из будущего (+20 лет):
     - FIXED_IDENTITY_PROMPT (сохранение геометрии лица + трансформация всего тела и одежды)
-    - Динамическая часть для выбранного сценария ("current" или "potential").
+    - Динамическая 5-блочная часть для выбранного сценария ("current" или "potential").
     """
     scenario_clean = "potential" if scenario == "potential" else "current"
-    dynamic_part = _generate_dynamic_prompt_via_llm(metrics, user_data, scenario=scenario_clean)
+    targets = _compute_visual_aging_targets(metrics, user_data, scenario=scenario_clean)
+
+    dynamic_part = _generate_dynamic_prompt_via_llm(metrics, user_data, scenario=scenario_clean, targets=targets)
     if not dynamic_part:
-        dynamic_part = _build_deterministic_aging_description(metrics, user_data, scenario=scenario_clean)
+        dynamic_part = _build_deterministic_aging_description(metrics, user_data, scenario=scenario_clean, targets=targets)
         print(f">>> PORTRAIT PROMPT ({scenario_clean}): Использован детерминированный fallback <<<")
 
+    if scenario_clean == "potential":
+        dynamic_part = _sanitize_potential_prompt(dynamic_part)
+
     scenario_header = (
-        "HEALTH SCENARIO: OPTIMAL POTENTIAL (ADOPTED ALL RECOMMENDATIONS & TRAINING)"
+        f"HEALTH SCENARIO: OPTIMAL POTENTIAL & ATHLETIC RECOMPOSITION (TARGET AGE: ~{targets['visual_target_age']} YEARS OLD)"
         if scenario_clean == "potential"
-        else "HEALTH SCENARIO: CURRENT WEAR & UNHEALTHY HABITS CONTINUATION"
+        else f"HEALTH SCENARIO: CURRENT WEAR & UNHEALTHY HABITS PROGRESSION (TARGET AGE: ~{targets['visual_target_age']} YEARS OLD)"
     )
 
-    full_prompt = f"{FIXED_IDENTITY_PROMPT}\n\n{scenario_header}:\n{dynamic_part}"
+    full_prompt = (
+        f"{FIXED_IDENTITY_PROMPT}\n\n"
+        f"{scenario_header}\n"
+        f"{targets['age_guardrail']}\n\n"
+        f"TRANSFORMATION COMMANDS:\n"
+        f"{dynamic_part}"
+    )
     return full_prompt
 
 
+# =====================================================================================
+# ЧАСТЬ 8: PILLOW FALLBACK
+# =====================================================================================
 def _simulate_aged_portrait(photo_bytes: bytes, portrait_prompt: str) -> bytes | None:
     """
     Интеллектуальный fallback на случай исчерпания квоты внешнего AI API:
@@ -374,19 +615,19 @@ def _simulate_aged_portrait(photo_bytes: bytes, portrait_prompt: str) -> bytes |
         w, h = orig.size
 
         prompt_lower = portrait_prompt.lower()
-        is_potential = "potential" in prompt_lower or "graceful" in prompt_lower or "athletic" in prompt_lower
+        is_potential = "potential" in prompt_lower or "vitality" in prompt_lower or "athletic" in prompt_lower or "recomposition" in prompt_lower
         is_unhealthy = any(keyword in prompt_lower for keyword in [
-            "gray", "smoker", "rosacea", "bloat", "unwell", "decline", "puffiness", "cadaverous", "wasted", "sallow"
+            "gray", "smoker", "rosacea", "bloat", "unwell", "decline", "puffiness", "cadaverous", "wasted", "sallow", "tension creases", "sarcopenic"
         ])
 
         if is_potential:
             # Здоровый потенциал: мягкое тёплое свечение, деликатное благородное взросление
-            sat_factor = 0.95
-            contrast_factor = 1.05
-            sharp_factor = 1.15
-            overlay_color = (150, 142, 136)
-            alpha_overlay = 0.04
-            alpha_edges = 0.02
+            sat_factor = 0.98
+            contrast_factor = 1.04
+            sharp_factor = 1.12
+            overlay_color = (152, 145, 138)
+            alpha_overlay = 0.03
+            alpha_edges = 0.015
         elif is_unhealthy:
             # Выраженный износ: сероватый землистый подтон, сниженный тургор, углубление морщин
             sat_factor = 0.72
@@ -426,10 +667,20 @@ def _simulate_aged_portrait(photo_bytes: bytes, portrait_prompt: str) -> bytes |
         return None
 
 
+# =====================================================================================
+# ЧАСТЬ 9: ВЫЗОВЫ ГРАФИЧЕСКИХ МОДЕЛЕЙ (IMAGE GENERATION API)
+# =====================================================================================
 def _call_gemini_image_api(api_key: str, photo_b64: str, mime_type: str, prompt: str) -> bytes | None:
     """Вызов Google Gemini / Google AI Studio для генерации изображения по фото и промпту."""
     models = ["gemini-2.0-flash-exp", "gemini-2.0-flash", "gemini-2.5-flash-image"]
-    
+
+    i2i_prompt = (
+        "IMAGE-TO-IMAGE EDITING TASK: Edit the attached photograph of this person. "
+        "Keep the exact same facial identity (eyes, nose, mouth, bone structure), camera framing, and background, "
+        "and apply the following full-body and facial transformation:\n\n"
+        + prompt
+    )
+
     for model in models:
         try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
@@ -443,7 +694,7 @@ def _call_gemini_image_api(api_key: str, photo_b64: str, mime_type: str, prompt:
                             }
                         },
                         {
-                            "text": prompt
+                            "text": i2i_prompt
                         }
                     ]
                 }],
@@ -464,7 +715,7 @@ def _call_gemini_image_api(api_key: str, photo_b64: str, mime_type: str, prompt:
             print(f">>> PORTRAIT: Запрос к Google Gemini ({model})... <<<")
             with urllib.request.urlopen(req, timeout=60.0) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
-            
+
             candidates = data.get("candidates", [])
             if candidates:
                 parts = candidates[0].get("content", {}).get("parts", [])
@@ -523,7 +774,7 @@ def _extract_image_from_response(res) -> bytes | None:
                     url_str = img.get("url") or (img.get("image_url", {}) if isinstance(img.get("image_url"), dict) else {}).get("url", "")
                 elif hasattr(img, "url"):
                     url_str = getattr(img, "url")
-                
+
                 if url_str and "base64," in url_str:
                     b64_part = url_str.split("base64,", 1)[1]
                     return base64.b64decode(b64_part)
@@ -557,6 +808,14 @@ def _call_openai_image_api(api_key: str, base_url: str | None, prompt: str, phot
     model = os.getenv("IMAGE_GEN_MODEL", "google/gemini-3.1-flash-lite-image").strip()
     photo_b64 = base64.b64encode(photo_bytes).decode("utf-8")
 
+    # Явная инструкция редактирования для мультимодальной модели
+    i2i_prompt = (
+        "IMAGE-TO-IMAGE EDITING TASK: Edit the attached photograph of this person. "
+        "Keep the exact same facial identity (eyes, nose, mouth, bone structure), camera framing, and background, "
+        "and apply the following full-body and facial transformation:\n\n"
+        + prompt
+    )
+
     # Метод 1: Мультимодальный Chat Completions (zveno.ai — принимает фото пользователя + промпт)
     for attempt in range(2):
         try:
@@ -574,7 +833,7 @@ def _call_openai_image_api(api_key: str, base_url: str | None, prompt: str, phot
                         },
                         {
                             "type": "text",
-                            "text": prompt
+                            "text": i2i_prompt
                         }
                     ]
                 }]
@@ -621,6 +880,12 @@ def _call_openai_image_api(api_key: str, base_url: str | None, prompt: str, phot
 def _call_replicate_image_api(api_key: str, photo_b64: str, mime_type: str, prompt: str) -> bytes | None:
     """Вызов Replicate API (Flux / SDXL img2img)."""
     try:
+        i2i_prompt = (
+            "IMAGE-TO-IMAGE EDITING TASK: Edit the attached photograph of this person. "
+            "Keep the exact same facial identity (eyes, nose, mouth, bone structure), camera framing, and background, "
+            "and apply the following full-body and facial transformation:\n\n"
+            + prompt
+        )
         url = "https://api.replicate.com/v1/models/black-forest-labs/flux-depth/predictions"
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -629,14 +894,14 @@ def _call_replicate_image_api(api_key: str, photo_b64: str, mime_type: str, prom
         body = {
             "input": {
                 "control_image": f"data:{mime_type};base64,{photo_b64}",
-                "prompt": prompt[:1500]
+                "prompt": i2i_prompt[:1500]
             }
         }
         req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers, method="POST")
         print(">>> PORTRAIT: Запрос к Replicate API... <<<")
         with urllib.request.urlopen(req, timeout=30.0) as resp:
             data = json.loads(resp.read().decode())
-        
+
         output = data.get("output")
         if isinstance(output, list) and len(output) > 0:
             img_url = output[0]
@@ -663,7 +928,7 @@ def generate_portrait_image(photo_bytes: bytes, mime_type: str, portrait_prompt:
 
     if api_key and api_key != "ПУСТО":
         photo_b64 = base64.b64encode(photo_bytes).decode("utf-8")
-        
+
         # 1. Если явно указан базовый URL прокси/сервиса (например, zveno.ai)
         if base_url:
             print(f">>> PORTRAIT: Запрос к кастомному сервису ({base_url})... <<<")
